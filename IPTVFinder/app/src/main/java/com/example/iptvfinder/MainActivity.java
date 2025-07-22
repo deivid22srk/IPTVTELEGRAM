@@ -15,7 +15,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button sendCodeButton = findViewById(R.id.send_code_button);
         sendCodeButton.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, VerifyCodeActivity.class);
+            Intent intent = new Intent(MainActivity.this, BotSettingsActivity.class);
             startActivity(intent);
         });
     }

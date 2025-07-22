@@ -18,6 +18,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import okhttp3.OkHttpClient;
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import org.telegram.telegrambots.meta.TelegramBotsApi;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
+
 import okhttp3.Request;
 import okhttp3.Response;
 
@@ -36,6 +43,18 @@ public class IPTVCollectorService extends Service {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        SharedPreferences sharedPref = getSharedPreferences("IPTVFinderPrefs", Context.MODE_PRIVATE);
+        String botToken = sharedPref.getString("bot_token", null);
+
+        if (botToken != null) {
+            try {
+                TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
+                botsApi.registerBot(new TelegramBot(botToken, this));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
@@ -43,13 +62,11 @@ public class IPTVCollectorService extends Service {
         createNotificationChannel();
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("IPTV Collector")
-                .setContentText("Collecting IPTV lists...")
+                .setContentText("Listening for IPTV lists...")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .build();
 
         startForeground(1, notification);
-
-        collectIptvLists();
 
         return START_NOT_STICKY;
     }
@@ -65,50 +82,39 @@ public class IPTVCollectorService extends Service {
         manager.notify(1, notification);
     }
 
-    private void collectIptvLists() {
+    public void validateUrl(String url) {
         new Thread(() -> {
-            List<String> iptvUrls = Arrays.asList(
-                    "http://p2king.redemais.click:80/get.php?username=794498560&password=398266515&type=m3u_plus",
-                    "http://example.com/list2.m3u"
-            );
+            // This is a simplified validation logic.
+            // A more robust implementation would parse the URL to extract username and password
+            // and then construct the player_api.php URL.
+            if (!url.contains("get.php")) {
+                Log.d(TAG, "Invalid URL format: " + url);
+                return;
+            }
 
-            for (String url : iptvUrls) {
-                validateUrl(url);
+            String playerApiUrl = url.replace("get.php", "player_api.php");
+
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder().url(playerApiUrl).build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String json = response.body().string();
+                    if (json.contains("\"auth\":1") && json.contains("\"status\":\"Active\"")) {
+                        Log.d(TAG, "Valid URL: " + url);
+                        validUrls.add(url);
+                        server.setValidUrls(validUrls);
+                        updateNotification("Found " + validUrls.size() + " valid lists.");
+                    } else {
+                        Log.d(TAG, "Invalid URL (auth failed): " + url);
+                    }
+                } else {
+                    Log.d(TAG, "Invalid URL (request failed): " + url);
+                }
+            } catch (IOException e) {
+                Log.e(TAG, "Error validating URL: " + url, e);
             }
         }).start();
-    }
-
-    private void validateUrl(String url) {
-        // This is a simplified validation logic.
-        // A more robust implementation would parse the URL to extract username and password
-        // and then construct the player_api.php URL.
-        if (!url.contains("get.php")) {
-            Log.d(TAG, "Invalid URL format: " + url);
-            return;
-        }
-
-        String playerApiUrl = url.replace("get.php", "player_api.php");
-
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(playerApiUrl).build();
-
-        try (Response response = client.newCall(request).execute()) {
-            if (response.isSuccessful() && response.body() != null) {
-                String json = response.body().string();
-                if (json.contains("\"auth\":1") && json.contains("\"status\":\"Active\"")) {
-                    Log.d(TAG, "Valid URL: " + url);
-                    validUrls.add(url);
-                    server.setValidUrls(validUrls);
-                    updateNotification("Found " + validUrls.size() + " valid lists.");
-                } else {
-                    Log.d(TAG, "Invalid URL (auth failed): " + url);
-                }
-            } else {
-                Log.d(TAG, "Invalid URL (request failed): " + url);
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Error validating URL: " + url, e);
-        }
     }
 
     private void createNotificationChannel() {

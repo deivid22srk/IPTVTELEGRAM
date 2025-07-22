@@ -23,6 +23,7 @@
         <activity android:name=".VerifyCodeActivity" />
         <activity android:name=".GroupSelectionActivity" />
         <service android:name=".IPTVCollectorService" />
+        <activity android:name=".BotSettingsActivity" />
     </application>
 
 </manifest>

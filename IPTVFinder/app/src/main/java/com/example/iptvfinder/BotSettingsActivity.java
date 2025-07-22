@@ -1,6 +1,7 @@
 package com.example.iptvfinder;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
@@ -26,6 +27,8 @@ public class BotSettingsActivity extends AppCompatActivity {
             if (!botToken.isEmpty()) {
                 saveBotToken(botToken);
                 Toast.makeText(this, "Bot token saved!", Toast.LENGTH_SHORT).show();
+                startService(new Intent(this, IPTVCollectorService.class));
+                finish(); // Optional: close this activity after saving the token
             } else {
                 Toast.makeText(this, "Please enter a bot token.", Toast.LENGTH_SHORT).show();
             }

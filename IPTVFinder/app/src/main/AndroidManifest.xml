@@ -12,7 +12,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.IPTVFinder">
         <activity
-            android:name=".MainActivity"
+            android:name=".BotSettingsActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -23,7 +23,6 @@
         <activity android:name=".VerifyCodeActivity" />
         <activity android:name=".GroupSelectionActivity" />
         <service android:name=".IPTVCollectorService" />
-        <activity android:name=".BotSettingsActivity" />
     </application>
 
 </manifest>

@@ -21,9 +21,9 @@ import okhttp3.OkHttpClient;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import okhttp3.Request;
 import okhttp3.Response;
@@ -34,6 +34,8 @@ public class IPTVCollectorService extends Service {
     private static final String TAG = "IPTVCollectorService";
     private SimpleHttpServer server;
     private List<String> validUrls = new ArrayList<>();
+    private TelegramApiClient telegramApiClient;
+    private long lastUpdateId = 0;
 
     @Override
     public void onCreate() {
@@ -42,18 +44,6 @@ public class IPTVCollectorService extends Service {
             server = new SimpleHttpServer(8080);
         } catch (IOException e) {
             e.printStackTrace();
-        }
-
-        SharedPreferences sharedPref = getSharedPreferences("IPTVFinderPrefs", Context.MODE_PRIVATE);
-        String botToken = sharedPref.getString("bot_token", null);
-
-        if (botToken != null) {
-            try {
-                TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
-                botsApi.registerBot(new TelegramBot(botToken, this));
-            } catch (TelegramApiException e) {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -68,7 +58,52 @@ public class IPTVCollectorService extends Service {
 
         startForeground(1, notification);
 
+        SharedPreferences sharedPref = getSharedPreferences("IPTVFinderPrefs", Context.MODE_PRIVATE);
+        String botToken = sharedPref.getString("bot_token", null);
+
+        if (botToken != null) {
+            telegramApiClient = new TelegramApiClient(botToken);
+            startPollingForUpdates();
+        }
+
         return START_NOT_STICKY;
+    }
+
+    private void startPollingForUpdates() {
+        new Thread(() -> {
+            while (true) {
+                String updatesJson = telegramApiClient.getUpdates(lastUpdateId + 1);
+                if (updatesJson != null) {
+                    try {
+                        JSONObject responseJson = new JSONObject(updatesJson);
+                        JSONArray updates = responseJson.getJSONArray("result");
+                        for (int i = 0; i < updates.length(); i++) {
+                            JSONObject update = updates.getJSONObject(i);
+                            lastUpdateId = update.getLong("update_id");
+                            if (update.has("message")) {
+                                JSONObject message = update.getJSONObject("message");
+                                if (message.has("text")) {
+                                    String messageText = message.getString("text");
+                                    String[] words = messageText.split("\\s+");
+                                    for (String word : words) {
+                                        if (word.startsWith("http://") || word.startsWith("https://")) {
+                                            validateUrl(word);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                }
+                try {
+                    Thread.sleep(5000); // Poll every 5 seconds
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
     }
 
     private void updateNotification(String text) {

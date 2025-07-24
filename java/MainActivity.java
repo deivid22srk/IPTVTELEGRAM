@@ -205,6 +205,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             
             reader.close();
             fileEditText.setText("Arquivo carregado: " + combos.size() + " combos");
+            checkStartButtonState();
             
         } catch (IOException e) {
             Toast.makeText(this, "Erro ao carregar arquivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();

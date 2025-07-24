@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/ScannerCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
-    app:cardBackgroundColor="#194b69"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="8dp"
-    app:strokeColor="#52e8ffbb"
-    app:strokeWidth="2dp">
+    android:layout_marginBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -21,14 +17,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="✅ HIT ROBÔ ENCONTRADO"
-            android:textColor="#19ffff"
+            android:textColor="?attr/colorPrimary"
             android:textSize="18sp"
             android:textStyle="bold"
             android:fontFamily="@font/orbitron_bold"
             android:letterSpacing="0.06"
             android:paddingBottom="8dp"
             android:layout_marginBottom="7dp"
-            android:shadowColor="#3be4ff"
+            android:shadowColor="?attr/colorPrimary"
             android:shadowDx="0"
             android:shadowDy="0"
             android:shadowRadius="6" />
@@ -36,14 +32,14 @@
         <View
             android:layout_width="match_parent"
             android:layout_height="1.5dp"
-            android:background="#21befe65"
+            android:background="?attr/colorPrimary"
             android:layout_marginBottom="12dp" />
 
         <TextView
             android:id="@+id/hitContentTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#deffff"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="16sp"
             android:fontFamily="@font/share_tech_mono"
             android:letterSpacing="0.02"
@@ -52,22 +48,13 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/copyButton"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:text="Copiar"
-            android:textColor="@color/white"
-            android:textStyle="bold"
             android:fontFamily="@font/orbitron_bold"
-            android:letterSpacing="0.07"
-            app:backgroundTint="#38e1fe"
-            app:cornerRadius="5dp"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="7dp"
-            android:shadowColor="#13163e"
-            android:shadowDx="0"
-            android:shadowDy="0"
-            android:shadowRadius="8" />
+            android:letterSpacing="0.07"/>
 
     </LinearLayout>
 

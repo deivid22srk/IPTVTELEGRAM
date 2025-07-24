@@ -31,9 +31,12 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -266,11 +269,15 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         hitsContainer.removeAllViews();
         copyAllButton.setVisibility(View.GONE);
 
+        // Salvar combos e proxies em arquivos temporários
+        String combosFilePath = saveListToFile("combos.txt", combos);
+        String proxiesFilePath = saveListToFile("proxies.txt", proxies);
+
         // Iniciar serviço
         Intent serviceIntent = new Intent(this, ScanService.class);
         serviceIntent.putExtra("panel", panel);
-        serviceIntent.putStringArrayListExtra("combos", new ArrayList<>(combos));
-        serviceIntent.putStringArrayListExtra("proxies", new ArrayList<>(proxies));
+        serviceIntent.putExtra("combosFilePath", combosFilePath);
+        serviceIntent.putExtra("proxiesFilePath", proxiesFilePath);
         serviceIntent.putExtra("speed", speed);
         
         startForegroundService(serviceIntent);
@@ -289,6 +296,20 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         startScanButton.setEnabled(true);
         stopScanButton.setEnabled(false);
         statusTextView.setText(getString(R.string.status_stopped, hits.size(), 0));
+    }
+
+    private String saveListToFile(String fileName, List<String> list) {
+        File file = new File(getCacheDir(), fileName);
+        try (FileOutputStream fos = new FileOutputStream(file);
+             OutputStreamWriter osw = new OutputStreamWriter(fos)) {
+            for (String item : list) {
+                osw.write(item + "\n");
+            }
+            return file.getAbsolutePath();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private void copyAllHits() {

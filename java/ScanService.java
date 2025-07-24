@@ -16,6 +16,9 @@ import androidx.core.app.NotificationCompat;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -68,9 +71,12 @@ public class ScanService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             panel = intent.getStringExtra("panel");
-            combos = intent.getStringArrayListExtra("combos");
-            proxies = intent.getStringArrayListExtra("proxies");
+            String combosFilePath = intent.getStringExtra("combosFilePath");
+            String proxiesFilePath = intent.getStringExtra("proxiesFilePath");
             speed = intent.getIntExtra("speed", 10);
+
+            combos = loadListFromFile(combosFilePath);
+            proxies = loadListFromFile(proxiesFilePath);
 
             if (panel != null && combos != null && !combos.isEmpty()) {
                 startForeground(NOTIFICATION_ID, getNotification("Iniciando scan...", 0, 0));
@@ -80,6 +86,21 @@ public class ScanService extends Service {
             }
         }
         return START_NOT_STICKY;
+    }
+
+    private List<String> loadListFromFile(String filePath) {
+        if (filePath == null) return new ArrayList<>();
+        File file = new File(filePath);
+        List<String> list = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                list.add(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return list;
     }
 
     private void startScan() {

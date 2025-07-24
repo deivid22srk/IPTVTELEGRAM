@@ -71,5 +71,6 @@
     <color name="scanner_background">#0E1547</color>
     <color name="scanner_surface">#112040</color>
     <color name="scanner_card">#194B69</color>
+    <color name="white">#FFFFFF</color>
 </resources>
 

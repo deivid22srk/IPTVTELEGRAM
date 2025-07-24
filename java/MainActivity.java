@@ -483,6 +483,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
     private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
         private androidx.appcompat.app.AlertDialog dialog;
+        private Uri[] uris;
 
         @Override
         protected void onPreExecute() {
@@ -495,6 +496,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
         @Override
         protected List<String> doInBackground(Uri... uris) {
+            this.uris = uris;
             List<String> combos = new ArrayList<>();
             try {
                 InputStream inputStream = getContentResolver().openInputStream(uris[0]);

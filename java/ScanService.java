@@ -84,7 +84,7 @@ public class ScanService extends Service {
             combos = loadListFromFile(combosFilePath);
             proxies = loadListFromFile(proxiesFilePath);
 
-            if (panel != null && combos != null && !combos.isEmpty()) {
+            if (panels != null && !panels.isEmpty() && combos != null && !combos.isEmpty()) {
                 startForeground(NOTIFICATION_ID, getNotification("Iniciando scan...", 0, 0));
                 startScan();
             } else {
@@ -185,7 +185,7 @@ public class ScanService extends Service {
                         if (listener != null) {
                             listener.onHitFound(hit);
                         }
-                        saveHitToFile(hit);
+                        saveHitToFile(hit, panel);
                     } else {
                         failsCount.incrementAndGet();
                     }
@@ -201,7 +201,7 @@ public class ScanService extends Service {
         }
     }
 
-    private void saveHitToFile(Hit hit) {
+    private void saveHitToFile(Hit hit, String panel) {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String directoryUriString = prefs.getString("hits_directory", null);
         if (directoryUriString == null) {
@@ -212,7 +212,7 @@ public class ScanService extends Service {
         DocumentFile directory = DocumentFile.fromTreeUri(this, directoryUri);
 
         if (directory != null && directory.exists() && directory.isDirectory()) {
-            String fileName = hit.getPanel().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt";
+            String fileName = panel.replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt";
             DocumentFile file = directory.findFile(fileName);
             if (file == null) {
                 file = directory.createFile("text/plain", fileName);

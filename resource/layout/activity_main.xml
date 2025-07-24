@@ -491,8 +491,7 @@
                             android:visibility="gone"
                             app:indicatorColor="?attr/colorPrimary"
                             app:trackColor="?attr/colorOutlineVariant"
-                            app:trackCornerRadius="8dp"
-                            app:indicatorCornerRadius="8dp" />
+                            app:trackCornerRadius="8dp" />
 
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>

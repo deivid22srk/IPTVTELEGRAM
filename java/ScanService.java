@@ -117,10 +117,9 @@ public class ScanService extends Service {
         executorService = Executors.newFixedThreadPool(speed);
 
         for (final String panel : panels) {
-            executorService.submit(() -> {
-                for (int i = 0; i < combos.size(); i++) {
-                    if (!isRunning) break;
-                    String combo = combos.get(i);
+            for (final String combo : combos) {
+                executorService.submit(() -> {
+                    if (!isRunning) return;
                     if (combo.contains(":")) {
                         String[] parts = combo.split(":");
                         String user = parts[0].trim();
@@ -129,8 +128,8 @@ public class ScanService extends Service {
                     }
                     currentIndex.incrementAndGet();
                     updateNotification();
-                }
-            });
+                });
+            }
         }
 
         // Shutdown executor service when all tasks are submitted

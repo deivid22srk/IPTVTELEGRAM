@@ -145,7 +145,6 @@ public class ScanService extends Service {
             }
             stopScan();
         }).start();
-        executorService.shutdown();
     }
 
     private void stopScan() {

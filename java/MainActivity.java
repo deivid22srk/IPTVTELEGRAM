@@ -34,6 +34,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.android.material.progressindicator.LinearProgressIndicator;
+// import androidx.appcompat.widget.Toolbar; // Removido para evitar conflito
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -62,11 +64,14 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private MaterialButton copyAllButton;
     private TextView statusTextView;
     private LinearLayout hitsContainer;
+    private LinearProgressIndicator progressIndicator;
+    // private Toolbar toolbar; // Removido para evitar conflito
 
     private List<String> combos = new ArrayList<>();
     private List<String> proxies = new ArrayList<>();
     private List<Hit> hits = new ArrayList<>();
     private boolean isScanning = false;
+    private LoadCombosTask loadCombosTask;
 
     private ActivityResultLauncher<Intent> filePickerLauncher;
     private ActivityResultLauncher<Intent> proxyFilePickerLauncher;
@@ -84,9 +89,16 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         
         // Registrar como listener do serviço
         ScanService.setListener(this);
+        
+        // Verificar estado inicial dos botões
+        checkStartButtonState();
     }
 
     private void initViews() {
+        // Removido Toolbar para evitar conflito com ActionBar
+        // toolbar = findViewById(R.id.toolbar);
+        // setSupportActionBar(toolbar);
+        
         panelsContainer = findViewById(R.id.panelsContainer);
         fileEditText = findViewById(R.id.fileEditText);
         proxyUrlEditText = findViewById(R.id.proxyUrlEditText);
@@ -105,6 +117,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         copyAllButton = findViewById(R.id.copyAllButton);
         statusTextView = findViewById(R.id.statusTextView);
         hitsContainer = findViewById(R.id.hitsContainer);
+        progressIndicator = findViewById(R.id.progressIndicator);
     }
 
     private void setupListeners() {
@@ -202,7 +215,22 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void loadCombosFromFile(Uri uri) {
-        new LoadCombosTask().execute(uri);
+        // Cancelar tarefa anterior se existir
+        if (loadCombosTask != null && !loadCombosTask.isCancelled()) {
+            loadCombosTask.cancel(true);
+            // Limpar arquivo temporário da tarefa anterior se existir
+            File oldTempFile = loadCombosTask.getTempComboFile();
+            if (oldTempFile != null && oldTempFile.exists()) {
+                oldTempFile.delete();
+            }
+        }
+        
+        // Força garbage collection antes de carregar novo arquivo
+        System.gc();
+        
+        // Criar nova tarefa
+        loadCombosTask = new LoadCombosTask();
+        loadCombosTask.execute(uri);
     }
 
     private void loadProxiesFromFile(Uri uri) {
@@ -232,10 +260,51 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void checkStartButtonState() {
-        boolean canStart = getPanels().size() > 0
-                          && !combos.isEmpty()
-                          && !isScanning;
-        startScanButton.setEnabled(canStart);
+        // Verificar se temos combos de qualquer forma (memória ou arquivo)
+        boolean hasCombos = false;
+        
+        // 1. Combos carregados na memória
+        if (!combos.isEmpty()) {
+            hasCombos = true;
+        }
+        // 2. Arquivo temporário de combos (para arquivos grandes)
+        else if (loadCombosTask != null) {
+            File tempFile = loadCombosTask.getTempComboFile();
+            if (tempFile != null && tempFile.exists() && tempFile.length() > 0) {
+                hasCombos = true;
+            }
+        }
+        // 3. Verificar se há arquivo selecionado (fallback)
+        else if (fileEditText.getTag() != null) {
+            hasCombos = true;
+        }
+        
+        ArrayList<String> panelsList = getPanels();
+        boolean hasPanels = panelsList.size() > 0;
+        boolean notScanning = !isScanning;
+        
+        boolean canStart = hasPanels && hasCombos && notScanning;
+        
+        // Habilitar/desabilitar botão
+        if (startScanButton != null) {
+            startScanButton.setEnabled(canStart);
+        }
+        
+        // Update UI feedback
+        if (statusTextView != null) {
+            if (!canStart) {
+                if (!hasPanels) {
+                    statusTextView.setText("⚠️ Adicione pelo menos um painel IPTV");
+                } else if (!hasCombos) {
+                    statusTextView.setText("⚠️ Selecione um arquivo de combos");
+                } else if (isScanning) {
+                    statusTextView.setText("⚠️ Scan já em execução");
+                }
+            } else {
+                int comboCount = !combos.isEmpty() ? combos.size() : 999999;
+                statusTextView.setText("✅ Pronto para scan - " + comboCount + " combos carregados");
+            }
+        }
     }
 
     private ArrayList<String> getPanels() {
@@ -253,7 +322,21 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
     private void startScan() {
         ArrayList<String> panels = getPanels();
-        if (panels.isEmpty() || combos.isEmpty()) {
+        
+        // Verificar se temos combos de qualquer forma (memória ou arquivo)
+        boolean hasCombos = false;
+        if (!combos.isEmpty()) {
+            hasCombos = true;
+        } else if (loadCombosTask != null) {
+            File tempFile = loadCombosTask.getTempComboFile();
+            if (tempFile != null && tempFile.exists() && tempFile.length() > 0) {
+                hasCombos = true;
+            }
+        } else if (fileEditText.getTag() != null) {
+            hasCombos = true; // Fallback: arquivo foi selecionado
+        }
+        
+        if (panels.isEmpty() || !hasCombos) {
             Toast.makeText(this, "Preencha pelo menos um painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -296,12 +379,19 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         serviceIntent.putExtra("combo_file_uri", fileEditText.getTag().toString());
         serviceIntent.putExtra("speed", speed);
         
+        // Se há um arquivo temporário (arquivo grande), passar o caminho
+        if (loadCombosTask != null && loadCombosTask.getTempComboFile() != null && loadCombosTask.getTempComboFile().exists()) {
+            serviceIntent.putExtra("temp_combo_file", loadCombosTask.getTempComboFile().getAbsolutePath());
+        }
+        
         startForegroundService(serviceIntent);
 
         isScanning = true;
         startScanButton.setEnabled(false);
         stopScanButton.setEnabled(true);
         statusTextView.setText(getString(R.string.status_starting));
+        progressIndicator.setVisibility(View.VISIBLE);
+        progressIndicator.setIndeterminate(true);
     }
 
     private void stopScan() {
@@ -312,6 +402,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         startScanButton.setEnabled(true);
         stopScanButton.setEnabled(false);
         statusTextView.setText(getString(R.string.status_stopped, hits.size(), 0));
+        progressIndicator.setVisibility(View.GONE);
     }
 
     private String saveListToFile(String fileName, List<String> list) {
@@ -377,6 +468,32 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             statusTextView.setText(getString(R.string.status_scanning, hitCount, failCount));
         });
     }
+    
+    @Override
+    public void onProgressUpdate(int processed, int total, int botsActive) {
+        runOnUiThread(() -> {
+            if (total > 0 && progressIndicator != null) {
+                progressIndicator.setIndeterminate(false);
+                progressIndicator.setMax(total);
+                progressIndicator.setProgress(processed);
+                
+                int percentage = (processed * 100) / total;
+                String progressText = String.format("🤖 %d bots ativos | Progresso: %d%% (%d/%d)", 
+                    botsActive, percentage, processed, total);
+                
+                // Update status to include progress
+                String currentStatus = statusTextView.getText().toString();
+                if (currentStatus.contains("|")) {
+                    String[] parts = currentStatus.split("\\|");
+                    if (parts.length >= 2) {
+                        statusTextView.setText(parts[0] + "| " + parts[1] + "\n" + progressText);
+                    }
+                } else {
+                    statusTextView.setText(currentStatus + "\n" + progressText);
+                }
+            }
+        });
+    }
 
     @Override
     public void onScanFinished(int hitCount, int failCount) {
@@ -385,6 +502,8 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             startScanButton.setEnabled(true);
             stopScanButton.setEnabled(false);
             statusTextView.setText(getString(R.string.status_stopped, hitCount, failCount));
+            progressIndicator.setVisibility(View.GONE);
+            checkStartButtonState();
         });
     }
 
@@ -464,6 +583,14 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     protected void onDestroy() {
         super.onDestroy();
         ScanService.setListener(null);
+        
+        // Limpar arquivo temporário se existir
+        if (loadCombosTask != null) {
+            File tempFile = loadCombosTask.getTempComboFile();
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
+            }
+        }
     }
 
     @Override
@@ -481,46 +608,233 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         return super.onOptionsItemSelected(item);
     }
 
-    private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
+    private class LoadCombosTask extends android.os.AsyncTask<Uri, Integer, Boolean> {
         private androidx.appcompat.app.AlertDialog dialog;
         private Uri[] uris;
+        private TextView progressText;
+        private LinearProgressIndicator progressBar;
+        private long totalLines = 0;
+        private long currentLine = 0;
+        private File tempComboFile;
+        private static final int MAX_MEMORY_COMBOS = 10000; // Limit to prevent OOM
 
         @Override
         protected void onPreExecute() {
+            // Create custom progress dialog with modern design
             androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this);
-            builder.setView(R.layout.dialog_progress);
+            View dialogView = getLayoutInflater().inflate(R.layout.dialog_progress, null);
+            progressText = dialogView.findViewById(R.id.progressText);
+            progressBar = dialogView.findViewById(R.id.progressBar);
+            
+            if (progressText != null) {
+                progressText.setText("Preparando para carregar arquivo...");
+            }
+            if (progressBar != null) {
+                progressBar.setIndeterminate(true);
+            }
+            
+            builder.setView(dialogView);
             builder.setCancelable(false);
             dialog = builder.create();
             dialog.show();
         }
 
         @Override
-        protected List<String> doInBackground(Uri... uris) {
+        protected Boolean doInBackground(Uri... uris) {
             this.uris = uris;
-            List<String> combos = new ArrayList<>();
+            
             try {
+                // Create temporary file for large combo processing
+                tempComboFile = new File(getCacheDir(), "temp_combos.txt");
+                
+                // First pass: count total lines for progress calculation
+                publishProgress(0); // Indicate we're counting lines
+                
                 InputStream inputStream = getContentResolver().openInputStream(uris[0]);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 16384); // Larger buffer
+                
+                // Count lines efficiently without storing in memory
                 String line;
                 while ((line = reader.readLine()) != null) {
                     if (line.contains(":")) {
-                        combos.add(line.trim());
+                        totalLines++;
                     }
                 }
                 reader.close();
+                
+                publishProgress(1); // Indicate we're starting to process
+                
+                // Determine processing strategy based on file size
+                boolean useMemoryProcessing = totalLines <= MAX_MEMORY_COMBOS;
+                
+                if (useMemoryProcessing) {
+                    return loadToMemory();
+                } else {
+                    return processLargeFile();
+                }
+                
             } catch (IOException e) {
                 e.printStackTrace();
+                return false;
+            } catch (OutOfMemoryError e) {
+                // Fallback to file processing if we run out of memory
+                System.gc(); // Force garbage collection
+                try {
+                    return processLargeFile();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    return false;
+                }
             }
-            return combos;
+        }
+        
+        private boolean loadToMemory() throws IOException {
+            // Small files - load to memory (original behavior)
+            List<String> combos = new ArrayList<>();
+            
+            InputStream inputStream = getContentResolver().openInputStream(uris[0]);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 16384);
+            
+            currentLine = 0;
+            int batchSize = 500; // Smaller batches to prevent OOM
+            
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains(":")) {
+                    combos.add(line.trim());
+                    currentLine++;
+                    
+                    // Update progress every batch
+                    if (currentLine % batchSize == 0) {
+                        publishProgress(2); // Regular progress update
+                        
+                        // Check memory usage
+                        Runtime runtime = Runtime.getRuntime();
+                        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+                        long maxMemory = runtime.maxMemory();
+                        
+                        if (usedMemory > maxMemory * 0.8) { // If using more than 80% memory
+                            System.gc(); // Force garbage collection
+                            
+                            // If still high memory usage, switch to file processing
+                            if ((runtime.totalMemory() - runtime.freeMemory()) > maxMemory * 0.7) {
+                                reader.close();
+                                return processLargeFile();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            reader.close();
+            MainActivity.this.combos = combos;
+            return true;
+        }
+        
+        private boolean processLargeFile() throws IOException {
+            // Large files - copy to temp file and process directly from file
+            publishProgress(3); // Indicate file processing mode
+            
+            FileOutputStream fos = new FileOutputStream(tempComboFile);
+            OutputStreamWriter osw = new OutputStreamWriter(fos);
+            
+            InputStream inputStream = getContentResolver().openInputStream(uris[0]);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 16384);
+            
+            currentLine = 0;
+            String line;
+            
+            while ((line = reader.readLine()) != null) {
+                if (line.contains(":")) {
+                    osw.write(line + "\n");
+                    currentLine++;
+                    
+                    if (currentLine % 1000 == 0) {
+                        publishProgress(4); // File processing progress
+                        osw.flush(); // Ensure data is written
+                    }
+                }
+            }
+            
+            reader.close();
+            osw.close();
+            
+            // Set combos to empty list - will be processed directly from file
+            MainActivity.this.combos = new ArrayList<>();
+            return true;
+        }
+        
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            int stage = values[0];
+            
+            if (progressText != null && progressBar != null) {
+                switch (stage) {
+                    case 0:
+                        progressText.setText("Analisando tamanho do arquivo...");
+                        progressBar.setIndeterminate(true);
+                        break;
+                    case 1:
+                        String processingMode = totalLines > MAX_MEMORY_COMBOS ? "arquivo" : "memória";
+                        progressText.setText(String.format("Iniciando carregamento de %d combos (modo %s)...", 
+                            totalLines, processingMode));
+                        progressBar.setIndeterminate(false);
+                        progressBar.setMax((int)totalLines);
+                        progressBar.setProgress(0);
+                        break;
+                    case 2:
+                        int progress = (int)((currentLine * 100) / totalLines);
+                        progressText.setText(String.format("Carregando na memória: %d/%d (%d%%)", 
+                            currentLine, totalLines, progress));
+                        progressBar.setProgress((int)currentLine);
+                        break;
+                    case 3:
+                        progressText.setText("Arquivo muito grande! Mudando para modo de processamento otimizado...");
+                        progressBar.setIndeterminate(true);
+                        break;
+                    case 4:
+                        int fileProgress = (int)((currentLine * 100) / totalLines);
+                        progressText.setText(String.format("Processando arquivo: %d/%d (%d%%)", 
+                            currentLine, totalLines, fileProgress));
+                        progressBar.setIndeterminate(false);
+                        progressBar.setMax((int)totalLines);
+                        progressBar.setProgress((int)currentLine);
+                        break;
+                }
+            }
         }
 
         @Override
-        protected void onPostExecute(List<String> result) {
-            dialog.dismiss();
-            MainActivity.this.combos = result;
-            fileEditText.setText("Arquivo carregado: " + result.size() + " combos");
-            fileEditText.setTag(uris[0]);
-            checkStartButtonState();
+        protected void onPostExecute(Boolean success) {
+            if (dialog != null && dialog.isShowing()) {
+                dialog.dismiss();
+            }
+            
+            if (success) {
+                String message;
+                if (totalLines > MAX_MEMORY_COMBOS) {
+                    message = String.format("📁 %d combos (modo arquivo otimizado)", totalLines);
+                } else {
+                    message = String.format("📁 %d combos carregados", combos.size());
+                }
+                
+                fileEditText.setText(message);
+                fileEditText.setTag(uris[0]);
+                checkStartButtonState();
+                
+                // Show success message
+                Toast.makeText(MainActivity.this, 
+                    "✅ Arquivo processado com sucesso: " + totalLines + " combos", 
+                    Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(MainActivity.this, 
+                    "❌ Erro ao processar arquivo. Tente um arquivo menor.", 
+                    Toast.LENGTH_LONG).show();
+            }
+        }
+        
+        public File getTempComboFile() {
+            return tempComboFile;
         }
     }
 }

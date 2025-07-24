@@ -4,7 +4,7 @@
     <string name="panel_hint">Digite o painel aqui</string>
     <string name="panel_label">Painel IPTV (ex: painel.com:8080 ou http://painel.com)</string>
     <string name="file_label">Arquivo combos (.txt, user:pass por linha)</string>
-    <string name="speed_label">Quantidade de Bots (Velocidade de Varredura)</string>
+    <string name="speed_label">🤖 Quantidade de Bots (Velocidade de Varredura)</string>
     <string name="proxy_options">Opções de Proxy:</string>
     <string name="no_proxy">Sem Proxy</string>
     <string name="github_proxy">Proxy do GitHub</string>
@@ -13,9 +13,9 @@
     <string name="stop_scan">⛔ Parar Scan</string>
     <string name="copy_all">📋 Copiar Todos os Hits</string>
     <string name="copy">Copiar</string>
-    <string name="status_stopped">Status: parado | Hits: %1$d | Falhas: %2$d</string>
-    <string name="status_scanning">Status: escaneando | Hits: %1$d | Falhas: %2$d</string>
-    <string name="status_starting">Status: iniciando scan | Hits: 0 | Falhas: 0</string>
+    <string name="status_stopped">⏹️ Parado | Hits: %1$d | Falhas: %2$d</string>
+    <string name="status_scanning">🔍 Escaneando | Hits: %1$d | Falhas: %2$d</string>
+    <string name="status_starting">🚀 Iniciando scan | Hits: 0 | Falhas: 0</string>
     <string name="hit_found">✅ HIT ROBÔ ENCONTRADO</string>
     <string name="notification_channel_name">Scanner Progress</string>
     <string name="notification_channel_desc">Mostra o progresso do scan</string>

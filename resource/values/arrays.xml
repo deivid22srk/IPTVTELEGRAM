@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="speed_options">
+        <item>Lento (5)</item>
+        <item>Médio (10)</item>
+        <item>Rápido (20)</item>
+        <item>Insano (30)</item>
+    </string-array>
+    
+    <integer-array name="speed_values">
+        <item>5</item>
+        <item>10</item>
+        <item>20</item>
+        <item>30</item>
+    </integer-array>
+</resources>
+

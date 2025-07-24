@@ -187,7 +187,11 @@ public class ScanService extends Service {
                                 "Ilimitado";
                         String activeCons = userInfo.has("active_cons") ? userInfo.getString("active_cons") : "?";
 
-                        Hit hit = new Hit(user, pass, panel, expDate, activeCons);
+                        String port = "80";
+                        if (panel.contains(":")) {
+                            port = panel.split(":")[1];
+                        }
+                        Hit hit = new Hit(user, pass, panel, expDate, activeCons, port);
                         hitsCount.incrementAndGet();
                         if (listener != null) {
                             listener.onHitFound(hit);

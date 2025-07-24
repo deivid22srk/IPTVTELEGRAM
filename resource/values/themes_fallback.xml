@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Fallback theme para versões antigas do Material Design -->
+    <!-- Use este tema se Material 3 não estiver disponível -->
+    
+    <style name="Theme.ScannerMundoDosBots.Fallback" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/scanner_blue</item>
+        <item name="colorPrimaryVariant">@color/scanner_dark_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+        
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/scanner_light_blue</item>
+        <item name="colorSecondaryVariant">@color/scanner_blue</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/md_theme_light_background</item>
+        <item name="colorSurface">@color/md_theme_light_surface</item>
+        <item name="colorOnBackground">@color/md_theme_light_onBackground</item>
+        <item name="colorOnSurface">@color/md_theme_light_onSurface</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <!-- Versão escura do fallback -->
+    <style name="Theme.ScannerMundoDosBots.Fallback.Dark" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/scanner_light_blue</item>
+        <item name="colorPrimaryVariant">@color/scanner_blue</item>
+        <item name="colorOnPrimary">@color/scanner_background</item>
+        
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/scanner_blue</item>
+        <item name="colorSecondaryVariant">@color/scanner_dark_blue</item>
+        <item name="colorOnSecondary">@color/white</item>
+        
+        <!-- Background colors -->
+        <item name="android:colorBackground">@color/md_theme_dark_background</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
+        <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
+        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+        
+        <!-- Status bar color. -->
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Tema mais básico ainda para versões muito antigas -->
+    <style name="Theme.ScannerMundoDosBots.Basic" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/scanner_blue</item>
+        <item name="colorPrimaryDark">@color/scanner_dark_blue</item>
+        <item name="colorAccent">@color/scanner_light_blue</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:statusBarColor">@color/scanner_blue</item>
+    </style>
+</resources>

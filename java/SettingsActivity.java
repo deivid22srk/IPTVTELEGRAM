@@ -12,13 +12,13 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 
 public class SettingsActivity extends AppCompatActivity {
 
     private ActivityResultLauncher<Intent> directoryPickerLauncher;
-    private MaterialSwitch telegramSwitch;
+    private SwitchMaterial telegramSwitch;
     private TextInputEditText telegramBotTokenEditText;
     private TextInputEditText telegramGroupIdEditText;
     private SharedPreferences prefs;

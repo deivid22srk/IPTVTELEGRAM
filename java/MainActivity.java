@@ -40,6 +40,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity implements ScanService.ScanListener {
 
@@ -272,7 +274,12 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             Toast.makeText(this, "Selecione uma velocidade", Toast.LENGTH_SHORT).show();
             return;
         }
-        int speed = Integer.parseInt(speedStr.replace("x", ""));
+        Pattern pattern = Pattern.compile("\\d+");
+        Matcher matcher = pattern.matcher(speedStr);
+        int speed = 10; // Default speed
+        if (matcher.find()) {
+            speed = Integer.parseInt(matcher.group(0));
+        }
 
         // Limpar hits anteriores
         hits.clear();

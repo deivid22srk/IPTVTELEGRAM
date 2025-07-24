@@ -117,8 +117,9 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
                     final int takeFlags = result.getData().getFlags()
                             & (Intent.FLAG_GRANT_READ_URI_PERMISSION
                             | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                    // Check for the freshest data.
-                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                    if (takeFlags != 0) {
+                        getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                    }
                     loadCombosFromFile(uri);
                     checkStartButtonState();
                 }

@@ -257,10 +257,30 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void checkStartButtonState() {
+        boolean hasCombos = !combos.isEmpty() || 
+                           (loadCombosTask != null && 
+                            loadCombosTask.getTempComboFile() != null && 
+                            loadCombosTask.getTempComboFile().exists());
+        
         boolean canStart = getPanels().size() > 0
-                          && !combos.isEmpty()
+                          && hasCombos
                           && !isScanning;
+        
         startScanButton.setEnabled(canStart);
+        
+        // Update UI feedback
+        if (!canStart) {
+            if (getPanels().size() == 0) {
+                statusTextView.setText("⚠️ Adicione pelo menos um painel IPTV");
+            } else if (!hasCombos) {
+                statusTextView.setText("⚠️ Selecione um arquivo de combos");
+            }
+        } else {
+            int comboCount = combos.isEmpty() && loadCombosTask != null ? 
+                           // Se está usando arquivo temporário, não temos o count exato
+                           999999 : combos.size();
+            statusTextView.setText("✅ Pronto para scan - " + comboCount + " combos carregados");
+        }
     }
 
     private ArrayList<String> getPanels() {

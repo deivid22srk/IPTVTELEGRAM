@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Scanner Mundo dos Bots</string>
+    <string name="app_name">Scanner IPTV</string>
     <string name="panel_hint">Digite o painel aqui</string>
     <string name="panel_label">Painel IPTV (ex: painel.com:8080 ou http://painel.com)</string>
     <string name="file_label">Arquivo combos (.txt, user:pass por linha)</string>

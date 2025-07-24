@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 import android.content.Intent;
 import android.content.SharedPreferences;

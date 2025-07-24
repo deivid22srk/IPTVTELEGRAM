@@ -13,7 +13,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Bem-vindo ao Scanner Mundo dos Bots!"
+        android:text="Bem-vindo ao Scanner IPTV!"
         android:textAppearance="?attr/textAppearanceHeadlineSmall"
         android:textColor="?attr/colorPrimary"
         android:layout_marginBottom="16dp"/>

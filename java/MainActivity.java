@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 import android.Manifest;
 import android.app.Activity;

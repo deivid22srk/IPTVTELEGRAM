@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;

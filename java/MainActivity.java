@@ -77,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         initViews();
         setupListeners();
         requestPermissions();
+        restoreUiState();
         addPanelInput();
         
         // Registrar como listener do serviço
@@ -205,6 +206,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             
             reader.close();
             fileEditText.setText("Arquivo carregado: " + combos.size() + " combos");
+            fileEditText.setTag(uri);
             checkStartButtonState();
             
         } catch (IOException e) {
@@ -235,9 +237,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void addPanelInput() {
-        LayoutInflater inflater = LayoutInflater.from(this);
-        View panelInputView = inflater.inflate(R.layout.panel_input_layout, panelsContainer, false);
-        panelsContainer.addView(panelInputView);
+        addPanelInput(null);
     }
 
     private void checkStartButtonState() {
@@ -403,6 +403,59 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     @Override
+    @Override
+    protected void onPause() {
+        super.onPause();
+        saveUiState();
+    }
+
+    private void saveUiState() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = prefs.edit();
+
+        ArrayList<String> panels = getPanels();
+        editor.putStringSet("panels", new java.util.HashSet<>(panels));
+
+        if (fileEditText.getTag() != null) {
+            editor.putString("combo_file_uri", fileEditText.getTag().toString());
+        }
+
+        editor.putString("speed", speedSpinner.getText().toString());
+
+        editor.apply();
+    }
+
+    private void restoreUiState() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        java.util.Set<String> panels = prefs.getStringSet("panels", null);
+        if (panels != null) {
+            panelsContainer.removeAllViews();
+            for (String panel : panels) {
+                addPanelInput(panel);
+            }
+        }
+
+        String comboFileUriString = prefs.getString("combo_file_uri", null);
+        if (comboFileUriString != null) {
+            Uri comboFileUri = Uri.parse(comboFileUriString);
+            loadCombosFromFile(comboFileUri);
+        }
+
+        String speed = prefs.getString("speed", null);
+        if (speed != null) {
+            speedSpinner.setText(speed, false);
+        }
+    }
+
+    private void addPanelInput(String text) {
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View panelInputView = inflater.inflate(R.layout.panel_input_layout, panelsContainer, false);
+        TextInputEditText editText = panelInputView.findViewById(R.id.panelEditText);
+        editText.setText(text);
+        panelsContainer.addView(panelInputView);
+    }
+
     protected void onDestroy() {
         super.onDestroy();
         ScanService.setListener(null);

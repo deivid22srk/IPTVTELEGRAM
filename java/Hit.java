@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 public class Hit {
     private String usuario;
@@ -6,27 +6,29 @@ public class Hit {
     private String painel;
     private String exp;
     private String activeCons;
-    private String m3uUrl;
+    private String port;
 
-    public Hit(String usuario, String senha, String painel, String exp, String activeCons) {
+    public Hit(String usuario, String senha, String painel, String exp, String activeCons, String port) {
         this.usuario = usuario;
         this.senha = senha;
         this.painel = painel;
         this.exp = exp;
         this.activeCons = activeCons;
-        this.m3uUrl = "http://" + painel + "/get.php?username=" + usuario + "&password=" + senha + "&type=m3u_plus";
+        this.port = port;
     }
 
     public String getFormattedText() {
-        return "🤖 HIT MUNDO DOS BOTS\n" +
+        String m3uUrl = "http://" + painel + "/get.php?username=" + usuario + "&password=" + senha + "&type=m3u_plus";
+        return "🔧 By: APK Scanner IPTV\n\n" +
                "🌐 Servidor: http://" + painel + "\n" +
-               "🚪 Porta: 80\n" +
+               "🚪 Porta: " + port + "\n" +
                "👤 Usuário: " + usuario + "\n" +
-               "🔑 Senha: " + senha + "\n" +
-               "📅 Expira: " + (exp != null ? exp : "Ilimitado") + "\n" +
-               "👀 Conexões: " + (activeCons != null ? activeCons : "?") + "\n" +
-               "📎 m3u_url: " + m3uUrl + "\n" +
-               "🎯 FEITO PRA VOCÊ!";
+               "🔐 Senha: " + senha + "\n" +
+               "⏳ Validade: " + (exp != null ? exp : "Ilimitado") + "\n" +
+               "👁️‍🗨️ Conexões Permitidas: " + (activeCons != null ? activeCons : "?") + "\n" +
+               "📥 Link M3U:\n" + m3uUrl + "\n\n" +
+               "📲 Baixar APK Scanner IPTV:\n" +
+               "🔗 https://github.com/deivid22srk/Scanner-IPTV/releases";
     }
 
     // Getters
@@ -35,6 +37,6 @@ public class Hit {
     public String getPainel() { return painel; }
     public String getExp() { return exp; }
     public String getActiveCons() { return activeCons; }
-    public String getM3uUrl() { return m3uUrl; }
+    public String getPort() { return port; }
 }
 

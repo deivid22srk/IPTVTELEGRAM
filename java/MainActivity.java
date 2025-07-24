@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 import android.Manifest;
 import android.app.Activity;
@@ -6,16 +6,21 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.AutoCompleteTextView;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,19 +36,24 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity implements ScanService.ScanListener {
 
-    private TextInputEditText panelEditText;
+    private LinearLayout panelsContainer;
     private TextInputEditText fileEditText;
     private TextInputEditText proxyUrlEditText;
     private TextInputEditText proxyFileEditText;
-    private Spinner speedSpinner;
+    private AutoCompleteTextView speedSpinner;
     private RadioGroup proxyRadioGroup;
     private TextInputLayout proxyUrlInputLayout;
     private TextInputLayout proxyFileInputLayout;
@@ -69,17 +79,24 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         initViews();
         setupListeners();
         requestPermissions();
+        restoreUiState();
+        addPanelInput();
         
         // Registrar como listener do serviço
         ScanService.setListener(this);
     }
 
     private void initViews() {
-        panelEditText = findViewById(R.id.panelEditText);
+        panelsContainer = findViewById(R.id.panelsContainer);
         fileEditText = findViewById(R.id.fileEditText);
         proxyUrlEditText = findViewById(R.id.proxyUrlEditText);
         proxyFileEditText = findViewById(R.id.proxyFileEditText);
         speedSpinner = findViewById(R.id.speedSpinner);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.speed_options, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        speedSpinner.setAdapter(adapter);
+        speedSpinner.setText(adapter.getItem(0), false);
         proxyRadioGroup = findViewById(R.id.proxyRadioGroup);
         proxyUrlInputLayout = findViewById(R.id.proxyUrlInputLayout);
         proxyFileInputLayout = findViewById(R.id.proxyFileInputLayout);
@@ -97,7 +114,14 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     Uri uri = result.getData().getData();
+                    final int takeFlags = result.getData().getFlags()
+                            & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    if (takeFlags != 0) {
+                        getContentResolver().takePersistableUriPermission(uri, takeFlags);
+                    }
                     loadCombosFromFile(uri);
+                    checkStartButtonState();
                 }
             }
         );
@@ -112,19 +136,9 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             }
         );
 
-        // Panel input listener
-        panelEditText.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                checkStartButtonState();
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {}
-        });
+        // Add panel button
+        MaterialButton addPanelButton = findViewById(R.id.addPanelButton);
+        addPanelButton.setOnClickListener(v -> addPanelInput());
 
         // File input click listener
         fileEditText.setOnClickListener(v -> openFilePicker());
@@ -172,9 +186,11 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void openFilePicker() {
-        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.setType("text/plain");
         intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         filePickerLauncher.launch(intent);
     }
 
@@ -186,25 +202,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void loadCombosFromFile(Uri uri) {
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(uri);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-            String line;
-            combos.clear();
-            
-            while ((line = reader.readLine()) != null) {
-                if (line.contains(":")) {
-                    combos.add(line.trim());
-                }
-            }
-            
-            reader.close();
-            fileEditText.setText("Arquivo carregado: " + combos.size() + " combos");
-            checkStartButtonState();
-            
-        } catch (IOException e) {
-            Toast.makeText(this, "Erro ao carregar arquivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
+        new LoadCombosTask().execute(uri);
     }
 
     private void loadProxiesFromFile(Uri uri) {
@@ -229,17 +227,34 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         }
     }
 
+    private void addPanelInput() {
+        addPanelInput(null);
+    }
+
     private void checkStartButtonState() {
-        boolean canStart = !panelEditText.getText().toString().trim().isEmpty() 
-                          && !combos.isEmpty() 
+        boolean canStart = getPanels().size() > 0
+                          && !combos.isEmpty()
                           && !isScanning;
         startScanButton.setEnabled(canStart);
     }
 
+    private ArrayList<String> getPanels() {
+        ArrayList<String> panels = new ArrayList<>();
+        for (int i = 0; i < panelsContainer.getChildCount(); i++) {
+            View panelInputView = panelsContainer.getChildAt(i);
+            TextInputEditText editText = panelInputView.findViewById(R.id.panelEditText);
+            String panel = editText.getText().toString().trim();
+            if (!panel.isEmpty()) {
+                panels.add(panel);
+            }
+        }
+        return panels;
+    }
+
     private void startScan() {
-        String panel = panelEditText.getText().toString().trim();
-        if (panel.isEmpty() || combos.isEmpty()) {
-            Toast.makeText(this, "Preencha o painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
+        ArrayList<String> panels = getPanels();
+        if (panels.isEmpty() || combos.isEmpty()) {
+            Toast.makeText(this, "Preencha pelo menos um painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -258,8 +273,17 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         }
 
         // Obter velocidade
-        int[] speedValues = {5, 10, 20, 30};
-        int speed = speedValues[speedSpinner.getSelectedItemPosition()];
+        String speedStr = speedSpinner.getText().toString();
+        if (speedStr.isEmpty()) {
+            Toast.makeText(this, "Selecione uma velocidade", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Pattern pattern = Pattern.compile("\\d+");
+        Matcher matcher = pattern.matcher(speedStr);
+        int speed = 10; // Default speed
+        if (matcher.find()) {
+            speed = Integer.parseInt(matcher.group(0));
+        }
 
         // Limpar hits anteriores
         hits.clear();
@@ -268,9 +292,8 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
         // Iniciar serviço
         Intent serviceIntent = new Intent(this, ScanService.class);
-        serviceIntent.putExtra("panel", panel);
-        serviceIntent.putStringArrayListExtra("combos", new ArrayList<>(combos));
-        serviceIntent.putStringArrayListExtra("proxies", new ArrayList<>(proxies));
+        serviceIntent.putStringArrayListExtra("panels", panels);
+        serviceIntent.putExtra("combo_file_uri", fileEditText.getTag().toString());
         serviceIntent.putExtra("speed", speed);
         
         startForegroundService(serviceIntent);
@@ -289,6 +312,20 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         startScanButton.setEnabled(true);
         stopScanButton.setEnabled(false);
         statusTextView.setText(getString(R.string.status_stopped, hits.size(), 0));
+    }
+
+    private String saveListToFile(String fileName, List<String> list) {
+        File file = new File(getCacheDir(), fileName);
+        try (FileOutputStream fos = new FileOutputStream(file);
+             OutputStreamWriter osw = new OutputStreamWriter(fos)) {
+            for (String item : list) {
+                osw.write(item + "\n");
+            }
+            return file.getAbsolutePath();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private void copyAllHits() {
@@ -352,9 +389,139 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        saveUiState();
+    }
+
+    private void saveUiState() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences.Editor editor = prefs.edit();
+
+        ArrayList<String> panels = getPanels();
+        editor.putStringSet("panels", new java.util.HashSet<>(panels));
+
+        if (fileEditText.getTag() != null) {
+            editor.putString("combo_file_uri", fileEditText.getTag().toString());
+        }
+
+        editor.putString("speed", speedSpinner.getText().toString());
+
+        editor.apply();
+    }
+
+    private void restoreUiState() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+
+        java.util.Set<String> panels = prefs.getStringSet("panels", null);
+        if (panels != null) {
+            panelsContainer.removeAllViews();
+            for (String panel : panels) {
+                addPanelInput(panel);
+            }
+        }
+
+        String comboFileUriString = prefs.getString("combo_file_uri", null);
+        if (comboFileUriString != null) {
+            Uri comboFileUri = Uri.parse(comboFileUriString);
+            loadCombosFromFile(comboFileUri);
+        }
+
+        String speed = prefs.getString("speed", null);
+        if (speed != null) {
+            speedSpinner.setText(speed, false);
+        }
+    }
+
+    private void addPanelInput(String text) {
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View panelInputView = inflater.inflate(R.layout.panel_input_layout, panelsContainer, false);
+        TextInputEditText editText = panelInputView.findViewById(R.id.panelEditText);
+        editText.setText(text);
+
+        MaterialButton removeButton = panelInputView.findViewById(R.id.removePanelButton);
+        removeButton.setOnClickListener(v -> {
+            panelsContainer.removeView(panelInputView);
+            checkStartButtonState();
+        });
+
+        editText.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                checkStartButtonState();
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        panelsContainer.addView(panelInputView);
+    }
+
     protected void onDestroy() {
         super.onDestroy();
         ScanService.setListener(null);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
+        private androidx.appcompat.app.AlertDialog dialog;
+        private Uri[] uris;
+
+        @Override
+        protected void onPreExecute() {
+            androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this);
+            builder.setView(R.layout.dialog_progress);
+            builder.setCancelable(false);
+            dialog = builder.create();
+            dialog.show();
+        }
+
+        @Override
+        protected List<String> doInBackground(Uri... uris) {
+            this.uris = uris;
+            List<String> combos = new ArrayList<>();
+            try {
+                InputStream inputStream = getContentResolver().openInputStream(uris[0]);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains(":")) {
+                        combos.add(line.trim());
+                    }
+                }
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return combos;
+        }
+
+        @Override
+        protected void onPostExecute(List<String> result) {
+            dialog.dismiss();
+            MainActivity.this.combos = result;
+            fileEditText.setText("Arquivo carregado: " + result.size() + " combos");
+            fileEditText.setTag(uris[0]);
+            checkStartButtonState();
+        }
     }
 }
 

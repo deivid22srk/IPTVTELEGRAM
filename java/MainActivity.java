@@ -462,6 +462,26 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         View panelInputView = inflater.inflate(R.layout.panel_input_layout, panelsContainer, false);
         TextInputEditText editText = panelInputView.findViewById(R.id.panelEditText);
         editText.setText(text);
+
+        MaterialButton removeButton = panelInputView.findViewById(R.id.removePanelButton);
+        removeButton.setOnClickListener(v -> {
+            panelsContainer.removeView(panelInputView);
+            checkStartButtonState();
+        });
+
+        editText.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                checkStartButtonState();
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
         panelsContainer.addView(panelInputView);
     }
 

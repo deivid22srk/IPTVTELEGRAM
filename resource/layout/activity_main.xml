@@ -19,26 +19,19 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:layout_marginBottom="24dp"
-            android:background="@drawable/title_background"
             android:fontFamily="@font/orbitron_bold"
             android:gravity="center"
             android:paddingTop="16dp"
             android:paddingBottom="16dp"
             android:text="🤖 SCANNER MUNDO DOS BOTS 🤖"
-            android:textColor="?attr/colorPrimary"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.08"
-            android:shadowColor="?attr/colorPrimary"
-            android:shadowDx="0"
-            android:shadowDy="0"
-            android:shadowRadius="15" />
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textColor="?attr/colorPrimary" />
 
         <com.google.android.material.card.MaterialCardView
-            style="@style/ScannerCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            app:cardElevation="8dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -48,7 +41,9 @@
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/panelInputLayout"
-                    style="@style/ScannerTextInput"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:hint="@string/panel_label">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -56,13 +51,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="textUri"
-                        android:fontFamily="@font/share_tech_mono"
-                        android:letterSpacing="0.02" />
+                        android:fontFamily="@font/share_tech_mono" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/fileInputLayout"
-                    style="@style/ScannerTextInput"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                     android:hint="@string/file_label">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -72,8 +69,7 @@
                         android:inputType="none"
                         android:focusable="false"
                         android:clickable="true"
-                        android:fontFamily="@font/share_tech_mono"
-                        android:letterSpacing="0.02" />
+                        android:fontFamily="@font/share_tech_mono" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -88,8 +84,7 @@
                         android:id="@+id/speedSpinner"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="none"
-                        android:entries="@array/speed_options" />
+                        android:inputType="none" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <LinearLayout
@@ -98,16 +93,13 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:layout_marginTop="24dp"
-                    android:background="@drawable/proxy_options_background"
                     android:padding="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/proxy_options"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <RadioGroup
                         android:id="@+id/proxyRadioGroup"
@@ -120,28 +112,28 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/no_proxy"
-                            android:checked="true"
-                            android:textColor="?attr/colorOnSurface"/>
+                            android:checked="true" />
 
                         <com.google.android.material.radiobutton.MaterialRadioButton
                             android:id="@+id/radioGithub"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/github_proxy"
-                            android:textColor="?attr/colorOnSurface"/>
+                            android:text="@string/github_proxy" />
 
                         <com.google.android.material.radiobutton.MaterialRadioButton
                             android:id="@+id/radioFile"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@string/file_proxy"
-                            android:textColor="?attr/colorOnSurface"/>
+                            android:text="@string/file_proxy" />
 
                     </RadioGroup>
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/proxyUrlInputLayout"
-                        style="@style/ScannerTextInput"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
                         android:hint="URL do arquivo de proxies no GitHub"
                         android:visibility="gone">
 
@@ -150,13 +142,15 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="textUri"
-                            android:fontFamily="@font/share_tech_mono"
-                            android:letterSpacing="0.02" />
+                            android:fontFamily="@font/share_tech_mono" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/proxyFileInputLayout"
-                        style="@style/ScannerTextInput"
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
                         android:hint="Caminho do arquivo de proxies"
                         android:visibility="gone">
 
@@ -167,35 +161,29 @@
                             android:inputType="none"
                             android:focusable="false"
                             android:clickable="true"
-                            android:fontFamily="@font/share_tech_mono"
-                            android:letterSpacing="0.02" />
+                            android:fontFamily="@font/share_tech_mono" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/startScanButton"
-                    style="@style/ScannerButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                     android:text="@string/start_scan"
                     android:enabled="false"
-                    android:fontFamily="@font/orbitron_bold"
-                    android:letterSpacing="0.04"
-                    android:shadowColor="?attr/colorPrimary"
-                    android:shadowDx="0"
-                    android:shadowDy="0"
-                    android:shadowRadius="3"/>
+                    android:fontFamily="@font/orbitron_bold" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/stopScanButton"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
-                    android:layout_height="56dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="@string/stop_scan"
                     android:enabled="false"
-                    android:textColor="?attr/colorError"
-                    android:fontFamily="@font/orbitron_bold"
-                    android:letterSpacing="0.04"/>
+                    android:fontFamily="@font/orbitron_bold" />
 
                 <TextView
                     android:id="@+id/statusTextView"
@@ -203,22 +191,19 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
                     android:layout_marginBottom="8dp"
-                    android:background="@drawable/status_background"
                     android:gravity="center"
                     android:padding="12dp"
                     android:text="@string/status_stopped"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.04"/>
+                    android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/copyAllButton"
-                    style="@style/ScannerButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
                     android:text="@string/copy_all"
                     android:visibility="gone"
-                    android:fontFamily="@font/orbitron_bold"
-                    android:letterSpacing="0.05"/>
+                    android:fontFamily="@font/orbitron_bold" />
 
                 <LinearLayout
                     android:id="@+id/hitsContainer"

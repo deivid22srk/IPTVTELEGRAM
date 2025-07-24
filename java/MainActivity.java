@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.AutoCompleteTextView;
@@ -83,6 +84,11 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         proxyUrlEditText = findViewById(R.id.proxyUrlEditText);
         proxyFileEditText = findViewById(R.id.proxyFileEditText);
         speedSpinner = findViewById(R.id.speedSpinner);
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.speed_options, android.R.layout.simple_spinner_item);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        speedSpinner.setAdapter(adapter);
+        speedSpinner.setText(adapter.getItem(0), false);
         proxyRadioGroup = findViewById(R.id.proxyRadioGroup);
         proxyUrlInputLayout = findViewById(R.id.proxyUrlInputLayout);
         proxyFileInputLayout = findViewById(R.id.proxyFileInputLayout);
@@ -262,6 +268,10 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
         // Obter velocidade
         String speedStr = speedSpinner.getText().toString();
+        if (speedStr.isEmpty()) {
+            Toast.makeText(this, "Selecione uma velocidade", Toast.LENGTH_SHORT).show();
+            return;
+        }
         int speed = Integer.parseInt(speedStr.replace("x", ""));
 
         // Limpar hits anteriores

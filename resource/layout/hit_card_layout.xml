@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    style="@style/ScannerCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp">
+    android:layout_marginBottom="12dp"
+    app:cardElevation="8dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,34 +17,24 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="✅ HIT ROBÔ ENCONTRADO"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
             android:textColor="?attr/colorPrimary"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:fontFamily="@font/orbitron_bold"
-            android:letterSpacing="0.06"
-            android:paddingBottom="8dp"
-            android:layout_marginBottom="7dp"
-            android:shadowColor="?attr/colorPrimary"
-            android:shadowDx="0"
-            android:shadowDy="0"
-            android:shadowRadius="6" />
+            android:fontFamily="@font/orbitron_bold" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1.5dp"
             android:background="?attr/colorPrimary"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp"
+            android:layout_marginTop="8dp" />
 
         <TextView
             android:id="@+id/hitContentTextView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="?attr/colorOnSurface"
-            android:textSize="16sp"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
             android:fontFamily="@font/share_tech_mono"
-            android:letterSpacing="0.02"
-            android:lineSpacingExtra="4dp"
-            android:layout_marginBottom="48dp" />
+            android:layout_marginBottom="16dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/copyButton"
@@ -53,8 +43,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="end"
             android:text="Copiar"
-            android:fontFamily="@font/orbitron_bold"
-            android:letterSpacing="0.07"/>
+            android:fontFamily="@font/orbitron_bold" />
 
     </LinearLayout>
 

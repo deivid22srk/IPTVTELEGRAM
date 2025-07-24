@@ -89,6 +89,9 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         
         // Registrar como listener do serviço
         ScanService.setListener(this);
+        
+        // Verificar estado inicial dos botões
+        checkStartButtonState();
     }
 
     private void initViews() {
@@ -257,29 +260,50 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void checkStartButtonState() {
-        boolean hasCombos = !combos.isEmpty() || 
-                           (loadCombosTask != null && 
-                            loadCombosTask.getTempComboFile() != null && 
-                            loadCombosTask.getTempComboFile().exists());
+        // Verificar se temos combos de qualquer forma (memória ou arquivo)
+        boolean hasCombos = false;
         
-        boolean canStart = getPanels().size() > 0
-                          && hasCombos
-                          && !isScanning;
+        // 1. Combos carregados na memória
+        if (!combos.isEmpty()) {
+            hasCombos = true;
+        }
+        // 2. Arquivo temporário de combos (para arquivos grandes)
+        else if (loadCombosTask != null) {
+            File tempFile = loadCombosTask.getTempComboFile();
+            if (tempFile != null && tempFile.exists() && tempFile.length() > 0) {
+                hasCombos = true;
+            }
+        }
+        // 3. Verificar se há arquivo selecionado (fallback)
+        else if (fileEditText.getTag() != null) {
+            hasCombos = true;
+        }
         
-        startScanButton.setEnabled(canStart);
+        ArrayList<String> panelsList = getPanels();
+        boolean hasPanels = panelsList.size() > 0;
+        boolean notScanning = !isScanning;
+        
+        boolean canStart = hasPanels && hasCombos && notScanning;
+        
+        // Habilitar/desabilitar botão
+        if (startScanButton != null) {
+            startScanButton.setEnabled(canStart);
+        }
         
         // Update UI feedback
-        if (!canStart) {
-            if (getPanels().size() == 0) {
-                statusTextView.setText("⚠️ Adicione pelo menos um painel IPTV");
-            } else if (!hasCombos) {
-                statusTextView.setText("⚠️ Selecione um arquivo de combos");
+        if (statusTextView != null) {
+            if (!canStart) {
+                if (!hasPanels) {
+                    statusTextView.setText("⚠️ Adicione pelo menos um painel IPTV");
+                } else if (!hasCombos) {
+                    statusTextView.setText("⚠️ Selecione um arquivo de combos");
+                } else if (isScanning) {
+                    statusTextView.setText("⚠️ Scan já em execução");
+                }
+            } else {
+                int comboCount = !combos.isEmpty() ? combos.size() : 999999;
+                statusTextView.setText("✅ Pronto para scan - " + comboCount + " combos carregados");
             }
-        } else {
-            int comboCount = combos.isEmpty() && loadCombosTask != null ? 
-                           // Se está usando arquivo temporário, não temos o count exato
-                           999999 : combos.size();
-            statusTextView.setText("✅ Pronto para scan - " + comboCount + " combos carregados");
         }
     }
 
@@ -298,7 +322,21 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
     private void startScan() {
         ArrayList<String> panels = getPanels();
-        if (panels.isEmpty() || combos.isEmpty()) {
+        
+        // Verificar se temos combos de qualquer forma (memória ou arquivo)
+        boolean hasCombos = false;
+        if (!combos.isEmpty()) {
+            hasCombos = true;
+        } else if (loadCombosTask != null) {
+            File tempFile = loadCombosTask.getTempComboFile();
+            if (tempFile != null && tempFile.exists() && tempFile.length() > 0) {
+                hasCombos = true;
+            }
+        } else if (fileEditText.getTag() != null) {
+            hasCombos = true; // Fallback: arquivo foi selecionado
+        }
+        
+        if (panels.isEmpty() || !hasCombos) {
             Toast.makeText(this, "Preencha pelo menos um painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
             return;
         }

@@ -114,6 +114,11 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     Uri uri = result.getData().getData();
+                    final int takeFlags = result.getData().getFlags()
+                            & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    // Check for the freshest data.
+                    getContentResolver().takePersistableUriPermission(uri, takeFlags);
                     loadCombosFromFile(uri);
                     checkStartButtonState();
                 }

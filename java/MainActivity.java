@@ -13,9 +13,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.AutoCompleteTextView;
 import android.widget.LinearLayout;
 import android.widget.RadioGroup;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private TextInputEditText fileEditText;
     private TextInputEditText proxyUrlEditText;
     private TextInputEditText proxyFileEditText;
-    private Spinner speedSpinner;
+    private AutoCompleteTextView speedSpinner;
     private RadioGroup proxyRadioGroup;
     private TextInputLayout proxyUrlInputLayout;
     private TextInputLayout proxyFileInputLayout;
@@ -261,8 +261,8 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         }
 
         // Obter velocidade
-        int[] speedValues = {5, 10, 20, 30};
-        int speed = speedValues[speedSpinner.getSelectedItemPosition()];
+        String speedStr = speedSpinner.getText().toString();
+        int speed = Integer.parseInt(speedStr.replace("x", ""));
 
         // Limpar hits anteriores
         hits.clear();

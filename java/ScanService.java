@@ -124,13 +124,9 @@ public class ScanService extends Service {
 
         // Shutdown executor service when all tasks are submitted
         executorService.shutdown();
-
-        // Await termination to stop the service
         new Thread(() -> {
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
-            } catch (InterruptedException e) {
-                // Handle exception
+            while (!executorService.isTerminated()) {
+                // Wait for all tasks to complete
             }
             stopScan();
         }).start();

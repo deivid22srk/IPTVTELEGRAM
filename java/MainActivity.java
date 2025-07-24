@@ -77,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         initViews();
         setupListeners();
         requestPermissions();
+        addPanelInput();
         
         // Registrar como listener do serviço
         ScanService.setListener(this);

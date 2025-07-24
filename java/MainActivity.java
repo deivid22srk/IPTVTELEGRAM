@@ -111,6 +111,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     Uri uri = result.getData().getData();
                     loadCombosFromFile(uri);
+                    checkStartButtonState();
                 }
             }
         );
@@ -203,7 +204,6 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             
             reader.close();
             fileEditText.setText("Arquivo carregado: " + combos.size() + " combos");
-            checkStartButtonState();
             
         } catch (IOException e) {
             Toast.makeText(this, "Erro ao carregar arquivo: " + e.getMessage(), Toast.LENGTH_SHORT).show();

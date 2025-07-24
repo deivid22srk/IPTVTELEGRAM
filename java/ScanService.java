@@ -77,16 +77,12 @@ public class ScanService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             panels = intent.getStringArrayListExtra("panels");
-            String combosFilePath = intent.getStringExtra("combosFilePath");
-            String proxiesFilePath = intent.getStringExtra("proxiesFilePath");
+            String comboFileUriString = intent.getStringExtra("combo_file_uri");
             speed = intent.getIntExtra("speed", 10);
 
-            combos = loadListFromFile(combosFilePath);
-            proxies = loadListFromFile(proxiesFilePath);
-
-            if (panels != null && !panels.isEmpty() && combos != null && !combos.isEmpty()) {
+            if (panels != null && !panels.isEmpty() && comboFileUriString != null) {
                 startForeground(NOTIFICATION_ID, getNotification("Iniciando scan...", 0, 0));
-                startScan();
+                startScan(Uri.parse(comboFileUriString));
             } else {
                 stopSelf();
             }
@@ -94,47 +90,32 @@ public class ScanService extends Service {
         return START_NOT_STICKY;
     }
 
-    private List<String> loadListFromFile(String filePath) {
-        if (filePath == null) return new ArrayList<>();
-        File file = new File(filePath);
-        List<String> list = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                list.add(line);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return list;
-    }
-
-    private void startScan() {
+    private void startScan(Uri comboFileUri) {
         isRunning = true;
         hitsCount.set(0);
         failsCount.set(0);
         currentIndex.set(0);
         executorService = Executors.newFixedThreadPool(speed);
 
-        final AtomicInteger comboIndex = new AtomicInteger(0);
         for (int i = 0; i < speed; i++) {
             executorService.submit(() -> {
-                while (isRunning) {
-                    int index = comboIndex.getAndIncrement();
-                    if (index >= combos.size()) {
-                        break;
-                    }
-                    String combo = combos.get(index);
-                    if (combo.contains(":")) {
-                        String[] parts = combo.split(":");
-                        String user = parts[0].trim();
-                        String pass = parts[1].trim();
-                        for (String panel : panels) {
-                            checkCombo(panel, user, pass);
+                try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                    String line;
+                    while (isRunning && (line = reader.readLine()) != null) {
+                        if (line.contains(":")) {
+                            String[] parts = line.split(":");
+                            String user = parts[0].trim();
+                            String pass = parts[1].trim();
+                            for (String panel : panels) {
+                                checkCombo(panel, user, pass);
+                            }
                         }
+                        currentIndex.incrementAndGet();
+                        updateNotification();
                     }
-                    currentIndex.incrementAndGet();
-                    updateNotification();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             });
         }

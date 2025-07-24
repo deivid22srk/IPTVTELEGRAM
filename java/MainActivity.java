@@ -202,7 +202,9 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void loadCombosFromFile(Uri uri) {
-        new LoadCombosTask().execute(uri);
+        fileEditText.setText("Arquivo selecionado");
+        fileEditText.setTag(uri);
+        checkStartButtonState();
     }
 
     private void loadProxiesFromFile(Uri uri) {
@@ -290,15 +292,10 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         hitsContainer.removeAllViews();
         copyAllButton.setVisibility(View.GONE);
 
-        // Salvar combos e proxies em arquivos temporários
-        String combosFilePath = saveListToFile("combos.txt", combos);
-        String proxiesFilePath = saveListToFile("proxies.txt", proxies);
-
         // Iniciar serviço
         Intent serviceIntent = new Intent(this, ScanService.class);
         serviceIntent.putStringArrayListExtra("panels", panels);
-        serviceIntent.putExtra("combosFilePath", combosFilePath);
-        serviceIntent.putExtra("proxiesFilePath", proxiesFilePath);
+        serviceIntent.putExtra("combo_file_uri", fileEditText.getTag().toString());
         serviceIntent.putExtra("speed", speed);
         
         startForegroundService(serviceIntent);
@@ -484,46 +481,6 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             return true;
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
-        private androidx.appcompat.app.AlertDialog dialog;
-
-        @Override
-        protected void onPreExecute() {
-            androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this);
-            builder.setView(R.layout.dialog_progress);
-            builder.setCancelable(false);
-            dialog = builder.create();
-            dialog.show();
-        }
-
-        @Override
-        protected List<String> doInBackground(Uri... uris) {
-            List<String> combos = new ArrayList<>();
-            try {
-                InputStream inputStream = getContentResolver().openInputStream(uris[0]);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains(":")) {
-                        combos.add(line.trim());
-                    }
-                }
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return combos;
-        }
-
-        @Override
-        protected void onPostExecute(List<String> result) {
-            dialog.dismiss();
-            MainActivity.this.combos = result;
-            fileEditText.setText("Arquivo carregado: " + result.size() + " combos");
-            checkStartButtonState();
-        }
     }
 }
 

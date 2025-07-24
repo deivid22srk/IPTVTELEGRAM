@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private List<String> proxies = new ArrayList<>();
     private List<Hit> hits = new ArrayList<>();
     private boolean isScanning = false;
+    private LoadCombosTask loadCombosTask;
 
     private ActivityResultLauncher<Intent> filePickerLauncher;
     private ActivityResultLauncher<Intent> proxyFilePickerLauncher;

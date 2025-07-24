@@ -39,20 +39,32 @@
                 android:orientation="vertical"
                 android:padding="24dp">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/panelInputLayout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                <LinearLayout
+                    android:id="@+id/panelsContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="@string/panel_label">
+                    android:orientation="vertical">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/panelEditText"
+                    <com.google.android.material.textfield.TextInputLayout
+                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:inputType="textUri"
-                        android:fontFamily="@font/share_tech_mono" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:hint="@string/panel_label">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="textUri"
+                            android:fontFamily="@font/share_tech_mono" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/addPanelButton"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Adicionar Painel" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/fileInputLayout"

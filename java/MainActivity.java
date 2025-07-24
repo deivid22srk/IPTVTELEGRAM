@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -45,7 +47,7 @@ import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity implements ScanService.ScanListener {
 
-    private TextInputEditText panelEditText;
+    private LinearLayout panelsContainer;
     private TextInputEditText fileEditText;
     private TextInputEditText proxyUrlEditText;
     private TextInputEditText proxyFileEditText;
@@ -81,7 +83,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void initViews() {
-        panelEditText = findViewById(R.id.panelEditText);
+        panelsContainer = findViewById(R.id.panelsContainer);
         fileEditText = findViewById(R.id.fileEditText);
         proxyUrlEditText = findViewById(R.id.proxyUrlEditText);
         proxyFileEditText = findViewById(R.id.proxyFileEditText);
@@ -123,19 +125,9 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
             }
         );
 
-        // Panel input listener
-        panelEditText.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                checkStartButtonState();
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {}
-        });
+        // Add panel button
+        MaterialButton addPanelButton = findViewById(R.id.addPanelButton);
+        addPanelButton.setOnClickListener(v -> addPanelInput());
 
         // File input click listener
         fileEditText.setOnClickListener(v -> openFilePicker());
@@ -240,17 +232,36 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         }
     }
 
+    private void addPanelInput() {
+        LayoutInflater inflater = LayoutInflater.from(this);
+        View panelInputView = inflater.inflate(R.layout.panel_input_layout, panelsContainer, false);
+        panelsContainer.addView(panelInputView);
+    }
+
     private void checkStartButtonState() {
-        boolean canStart = !panelEditText.getText().toString().trim().isEmpty() 
-                          && !combos.isEmpty() 
+        boolean canStart = getPanels().size() > 0
+                          && !combos.isEmpty()
                           && !isScanning;
         startScanButton.setEnabled(canStart);
     }
 
+    private ArrayList<String> getPanels() {
+        ArrayList<String> panels = new ArrayList<>();
+        for (int i = 0; i < panelsContainer.getChildCount(); i++) {
+            View panelInputView = panelsContainer.getChildAt(i);
+            TextInputEditText editText = panelInputView.findViewById(R.id.panelEditText);
+            String panel = editText.getText().toString().trim();
+            if (!panel.isEmpty()) {
+                panels.add(panel);
+            }
+        }
+        return panels;
+    }
+
     private void startScan() {
-        String panel = panelEditText.getText().toString().trim();
-        if (panel.isEmpty() || combos.isEmpty()) {
-            Toast.makeText(this, "Preencha o painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
+        ArrayList<String> panels = getPanels();
+        if (panels.isEmpty() || combos.isEmpty()) {
+            Toast.makeText(this, "Preencha pelo menos um painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -292,7 +303,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
         // Iniciar serviço
         Intent serviceIntent = new Intent(this, ScanService.class);
-        serviceIntent.putExtra("panel", panel);
+        serviceIntent.putStringArrayListExtra("panels", panels);
         serviceIntent.putExtra("combosFilePath", combosFilePath);
         serviceIntent.putExtra("proxiesFilePath", proxiesFilePath);
         serviceIntent.putExtra("speed", speed);
@@ -393,6 +404,21 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     protected void onDestroy() {
         super.onDestroy();
         ScanService.setListener(null);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }
 

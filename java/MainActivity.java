@@ -204,10 +204,38 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private void loadCombosFromFile(Uri uri) {
         if (uri != null) {
             this.comboFileUri = uri;
-            fileEditText.setText("Arquivo carregado");
+            String fileName = getFileName(uri);
+            fileEditText.setText(fileName);
             fileEditText.setTag(uri);
             checkStartButtonState();
         }
+    }
+
+    private String getFileName(Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+            try {
+                if (cursor != null && cursor.moveToFirst()) {
+                    int columnIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (columnIndex != -1) {
+                        result = cursor.getString(columnIndex);
+                    }
+                }
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
     }
 
     private void loadProxiesFromFile(Uri uri) {

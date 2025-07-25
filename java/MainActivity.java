@@ -63,7 +63,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private TextView statusTextView;
     private LinearLayout hitsContainer;
 
-    private List<String> combos = new ArrayList<>();
+    private Uri comboFileUri;
     private List<String> proxies = new ArrayList<>();
     private List<Hit> hits = new ArrayList<>();
     private boolean isScanning = false;
@@ -202,7 +202,12 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void loadCombosFromFile(Uri uri) {
-        new LoadCombosTask().execute(uri);
+        if (uri != null) {
+            this.comboFileUri = uri;
+            fileEditText.setText("Arquivo carregado");
+            fileEditText.setTag(uri);
+            checkStartButtonState();
+        }
     }
 
     private void loadProxiesFromFile(Uri uri) {
@@ -233,7 +238,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
     private void checkStartButtonState() {
         boolean canStart = getPanels().size() > 0
-                          && !combos.isEmpty()
+                          && comboFileUri != null
                           && !isScanning;
         startScanButton.setEnabled(canStart);
     }
@@ -253,7 +258,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
 
     private void startScan() {
         ArrayList<String> panels = getPanels();
-        if (panels.isEmpty() || combos.isEmpty()) {
+        if (panels.isEmpty() || comboFileUri == null) {
             Toast.makeText(this, "Preencha pelo menos um painel e selecione um arquivo de combos", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -293,7 +298,7 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         // Iniciar serviço
         Intent serviceIntent = new Intent(this, ScanService.class);
         serviceIntent.putStringArrayListExtra("panels", panels);
-        serviceIntent.putExtra("combo_file_uri", fileEditText.getTag().toString());
+        serviceIntent.putExtra("combo_file_uri", comboFileUri.toString());
         serviceIntent.putExtra("speed", speed);
         
         startForegroundService(serviceIntent);
@@ -481,47 +486,5 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         return super.onOptionsItemSelected(item);
     }
 
-    private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
-        private androidx.appcompat.app.AlertDialog dialog;
-        private Uri[] uris;
-
-        @Override
-        protected void onPreExecute() {
-            androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this);
-            builder.setView(R.layout.dialog_progress);
-            builder.setCancelable(false);
-            dialog = builder.create();
-            dialog.show();
-        }
-
-        @Override
-        protected List<String> doInBackground(Uri... uris) {
-            this.uris = uris;
-            List<String> combos = new ArrayList<>();
-            try {
-                InputStream inputStream = getContentResolver().openInputStream(uris[0]);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains(":")) {
-                        combos.add(line.trim());
-                    }
-                }
-                reader.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            return combos;
-        }
-
-        @Override
-        protected void onPostExecute(List<String> result) {
-            dialog.dismiss();
-            MainActivity.this.combos = result;
-            fileEditText.setText("Arquivo carregado: " + result.size() + " combos");
-            fileEditText.setTag(uris[0]);
-            checkStartButtonState();
-        }
-    }
 }
 

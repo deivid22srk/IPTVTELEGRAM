@@ -47,7 +47,6 @@ public class ScanService extends Service {
     private OkHttpClient httpClient;
 
     private List<String> panels;
-    private List<String> combos;
     private List<String> proxies;
     private int speed;
 
@@ -97,36 +96,71 @@ public class ScanService extends Service {
         hitsCount.set(0);
         failsCount.set(0);
         currentIndex.set(0);
-        executorService = Executors.newFixedThreadPool(speed);
+        executorService = Executors.newFixedThreadPool(speed + 1); // +1 for the producer
 
+        java.util.concurrent.BlockingQueue<String> queue = new java.util.concurrent.LinkedBlockingQueue<>(1000);
+
+        // Producer
+        executorService.submit(() -> {
+            try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                String line;
+                while (isRunning && (line = reader.readLine()) != null) {
+                    if (line.contains(":")) {
+                        try {
+                            queue.put(line.trim());
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                // Add sentinel values to signal consumers to stop
+                for (int i = 0; i < speed; i++) {
+                    try {
+                        queue.put("POISON_PILL");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        });
+
+        // Consumers
         for (int i = 0; i < speed; i++) {
             executorService.submit(() -> {
-                try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                    String line;
-                    while (isRunning && (line = reader.readLine()) != null) {
-                        if (line.contains(":")) {
-                            String[] parts = line.split(":");
-                            String user = parts[0].trim();
-                            String pass = parts[1].trim();
-                            for (String panel : panels) {
-                                checkCombo(panel, user, pass);
-                            }
+                try {
+                    while (isRunning) {
+                        String line = queue.take();
+                        if ("POISON_PILL".equals(line)) {
+                            break;
+                        }
+                        String[] parts = line.split(":");
+                        String user = parts[0].trim();
+                        String pass = parts[1].trim();
+                        for (String panel : panels) {
+                            checkCombo(panel, user, pass);
                         }
                         currentIndex.incrementAndGet();
                         updateNotification();
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             });
         }
 
-        // Shutdown executor service when all tasks are submitted
         executorService.shutdown();
         new Thread(() -> {
-            while (!executorService.isTerminated()) {
-                // Wait for all tasks to complete
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                // (Re-)Cancel if current thread also interrupted
+                executorService.shutdownNow();
+                // Preserve interrupt status
+                Thread.currentThread().interrupt();
             }
             stopScan();
         }).start();
@@ -280,11 +314,9 @@ public class ScanService extends Service {
 
     private void updateNotification() {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        int totalCombos = combos.size();
-        int currentProgress = currentIndex.get();
         String statusText = getString(R.string.notification_text, hitsCount.get(), failsCount.get());
         
-        notificationManager.notify(NOTIFICATION_ID, getNotification(statusText, currentProgress, totalCombos));
+        notificationManager.notify(NOTIFICATION_ID, getNotification(statusText, 0, 0));
 
         if (listener != null) {
             listener.onStatusUpdate(hitsCount.get(), failsCount.get());

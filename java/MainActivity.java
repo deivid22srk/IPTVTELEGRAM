@@ -66,6 +66,11 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     private List<String> combos = new ArrayList<>();
     private List<String> proxies = new ArrayList<>();
     private List<Hit> hits = new ArrayList<>();
+    
+    // Constantes para limites de memória
+    private static final int MAX_COMBOS_DEFAULT = 50000;
+    private static final int MAX_PROXIES_DEFAULT = 10000;
+    private static final int BATCH_SIZE_DEFAULT = 1000;
     private boolean isScanning = false;
 
     private ActivityResultLauncher<Intent> filePickerLauncher;
@@ -202,28 +207,100 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
     }
 
     private void loadCombosFromFile(Uri uri) {
+        // Verifica memória disponível antes de carregar
+        if (!isMemoryAvailable()) {
+            Toast.makeText(this, "Memória insuficiente. Feche outros aplicativos e tente novamente.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        
         new LoadCombosTask().execute(uri);
+    }
+    
+    /**
+     * Verifica se há memória suficiente disponível
+     */
+    private boolean isMemoryAvailable() {
+        Runtime runtime = Runtime.getRuntime();
+        long maxMemory = runtime.maxMemory();
+        long usedMemory = runtime.totalMemory() - runtime.freeMemory();
+        long availableMemory = maxMemory - usedMemory;
+        
+        // Requer pelo menos 50MB livres
+        return availableMemory > (50 * 1024 * 1024);
+    }
+    
+    /**
+     * Força limpeza de memória
+     */
+    private void forceGarbageCollection() {
+        System.gc();
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        System.gc();
+    }
+    
+    /**
+     * Libera recursos desnecessários para economizar memória
+     */
+    private void freeUnusedResources() {
+        // Limpa hits antigos se houver muitos
+        if (hits.size() > 1000) {
+            int toRemove = hits.size() - 500;
+            for (int i = 0; i < toRemove; i++) {
+                hits.remove(0);
+                if (hitsContainer.getChildCount() > 0) {
+                    hitsContainer.removeViewAt(0);
+                }
+            }
+        }
+        forceGarbageCollection();
     }
 
     private void loadProxiesFromFile(Uri uri) {
         try {
             InputStream inputStream = getContentResolver().openInputStream(uri);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            if (inputStream == null) {
+                Toast.makeText(this, "Erro ao abrir arquivo de proxies", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 8192);
             String line;
             proxies.clear();
             
-            while ((line = reader.readLine()) != null) {
-                if (!line.trim().isEmpty()) {
-                    proxies.add(line.trim());
+            int count = 0;
+            while ((line = reader.readLine()) != null && count < MAX_PROXIES_DEFAULT) {
+                line = line.trim();
+                if (!line.isEmpty()) {
+                    proxies.add(line);
+                    count++;
                 }
             }
             
             reader.close();
-            proxyFileEditText.setText("Proxies carregados: " + proxies.size());
-            Toast.makeText(this, "Proxies carregados: " + proxies.size(), Toast.LENGTH_SHORT).show();
+            
+            String message;
+            if (count >= MAX_PROXIES_DEFAULT) {
+                message = "Proxies carregados: " + proxies.size() + " (limite atingido)";
+                Toast.makeText(this, "Limite de " + MAX_PROXIES_DEFAULT + " proxies atingido.", Toast.LENGTH_LONG).show();
+            } else {
+                message = "Proxies carregados: " + proxies.size();
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            }
+            
+            proxyFileEditText.setText(message);
+            
+            // Força garbage collection
+            System.gc();
             
         } catch (IOException e) {
             Toast.makeText(this, "Erro ao carregar proxies: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        } catch (OutOfMemoryError e) {
+            System.gc();
+            Toast.makeText(this, "Arquivo de proxies muito grande! Carregados apenas " + proxies.size() + " proxies.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -368,6 +445,11 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         runOnUiThread(() -> {
             hits.add(hit);
             addHitCard(hit);
+            
+            // Limpa recursos automaticamente se necessário
+            if (hits.size() % 100 == 0 && !isMemoryAvailable()) {
+                freeUnusedResources();
+            }
         });
     }
 
@@ -481,46 +563,122 @@ public class MainActivity extends AppCompatActivity implements ScanService.ScanL
         return super.onOptionsItemSelected(item);
     }
 
-    private class LoadCombosTask extends android.os.AsyncTask<Uri, Void, List<String>> {
+    private class LoadCombosTask extends android.os.AsyncTask<Uri, Integer, List<String>> {
         private androidx.appcompat.app.AlertDialog dialog;
         private Uri[] uris;
+        private TextView progressText;
+        // Usa as constantes da classe principal
 
         @Override
         protected void onPreExecute() {
             androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(MainActivity.this);
-            builder.setView(R.layout.dialog_progress);
+            View dialogView = getLayoutInflater().inflate(R.layout.dialog_progress, null);
+            progressText = new TextView(MainActivity.this);
+            progressText.setText("Iniciando carregamento...");
+            progressText.setPadding(20, 20, 20, 20);
+            
+            LinearLayout layout = new LinearLayout(MainActivity.this);
+            layout.setOrientation(LinearLayout.VERTICAL);
+            layout.addView(dialogView);
+            layout.addView(progressText);
+            
+            builder.setView(layout);
             builder.setCancelable(false);
             dialog = builder.create();
             dialog.show();
         }
 
         @Override
+        protected void onProgressUpdate(Integer... values) {
+            if (progressText != null) {
+                progressText.setText("Carregados: " + values[0] + " combos");
+            }
+        }
+
+        @Override
         protected List<String> doInBackground(Uri... uris) {
             this.uris = uris;
             List<String> combos = new ArrayList<>();
+            
             try {
                 InputStream inputStream = getContentResolver().openInputStream(uris[0]);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                if (inputStream == null) {
+                    return combos;
+                }
+                
+                // Verifica tamanho disponível aproximado
+                int available = inputStream.available();
+                if (available > 100 * 1024 * 1024) { // 100MB
+                    // Arquivo muito grande, avisa o usuário
+                    publishProgress(-1);
+                }
+                
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 8192);
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains(":")) {
-                        combos.add(line.trim());
+                int count = 0;
+                int batchCount = 0;
+                
+                while ((line = reader.readLine()) != null && count < MAX_COMBOS_DEFAULT) {
+                    line = line.trim();
+                    if (!line.isEmpty() && line.contains(":")) {
+                        combos.add(line);
+                        count++;
+                        batchCount++;
+                        
+                        // Atualiza progresso a cada lote
+                        if (batchCount >= BATCH_SIZE_DEFAULT) {
+                            publishProgress(count);
+                            batchCount = 0;
+                            
+                            // Pequena pausa para liberar CPU
+                            try {
+                                Thread.sleep(10);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
                     }
                 }
+                
                 reader.close();
+                
+                // Força garbage collection para liberar memória
+                System.gc();
+                
             } catch (IOException e) {
                 e.printStackTrace();
+            } catch (OutOfMemoryError e) {
+                // Em caso de falta de memória, tenta liberar e retornar o que foi carregado
+                System.gc();
+                Toast.makeText(MainActivity.this, "Arquivo muito grande! Carregados apenas " + combos.size() + " combos.", Toast.LENGTH_LONG).show();
             }
+            
             return combos;
         }
 
         @Override
         protected void onPostExecute(List<String> result) {
-            dialog.dismiss();
+            if (dialog != null) {
+                dialog.dismiss();
+            }
+            
             MainActivity.this.combos = result;
-            fileEditText.setText("Arquivo carregado: " + result.size() + " combos");
+            
+            String message;
+            if (result.size() >= MAX_COMBOS_DEFAULT) {
+                message = "Arquivo carregado: " + result.size() + " combos (limite atingido)";
+                Toast.makeText(MainActivity.this, "Limite de " + MAX_COMBOS_DEFAULT + " combos atingido. Para melhor performance, considere usar um arquivo menor.", Toast.LENGTH_LONG).show();
+            } else {
+                message = "Arquivo carregado: " + result.size() + " combos";
+            }
+            
+            fileEditText.setText(message);
             fileEditText.setTag(uris[0]);
             checkStartButtonState();
+            
+            // Força garbage collection final
+            System.gc();
         }
     }
 }

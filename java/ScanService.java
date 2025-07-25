@@ -47,9 +47,10 @@ public class ScanService extends Service {
     private OkHttpClient httpClient;
 
     private List<String> panels;
-    private List<String> combos;
+    private List<String> combos = new ArrayList<>();
     private List<String> proxies;
     private int speed;
+    private volatile int totalCombos = 0;
 
     private AtomicInteger hitsCount = new AtomicInteger(0);
     private AtomicInteger failsCount = new AtomicInteger(0);
@@ -97,26 +98,51 @@ public class ScanService extends Service {
         hitsCount.set(0);
         failsCount.set(0);
         currentIndex.set(0);
+        
+        // Primeiro, carrega todos os combos em memória (com otimizações)
+        loadCombosFromUri(comboFileUri);
+        
+        if (combos.isEmpty()) {
+            Log.e("ScanService", "Nenhum combo carregado");
+            stopScan();
+            return;
+        }
+        
+        totalCombos = combos.size();
         executorService = Executors.newFixedThreadPool(speed);
 
+        // Divide os combos entre as threads
+        int combosPerThread = Math.max(1, combos.size() / speed);
+        
         for (int i = 0; i < speed; i++) {
+            final int threadIndex = i;
+            final int startIndex = i * combosPerThread;
+            final int endIndex = (i == speed - 1) ? combos.size() : (i + 1) * combosPerThread;
+            
             executorService.submit(() -> {
-                try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
-                     BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-                    String line;
-                    while (isRunning && (line = reader.readLine()) != null) {
-                        if (line.contains(":")) {
-                            String[] parts = line.split(":");
-                            String user = parts[0].trim();
-                            String pass = parts[1].trim();
-                            for (String panel : panels) {
-                                checkCombo(panel, user, pass);
+                try {
+                    for (int j = startIndex; j < endIndex && isRunning; j++) {
+                        String combo = combos.get(j);
+                        if (combo.contains(":")) {
+                            String[] parts = combo.split(":", 2); // Limite a 2 partes
+                            if (parts.length >= 2) {
+                                String user = parts[0].trim();
+                                String pass = parts[1].trim();
+                                for (String panel : panels) {
+                                    if (!isRunning) break;
+                                    checkCombo(panel, user, pass);
+                                }
                             }
                         }
                         currentIndex.incrementAndGet();
-                        updateNotification();
+                        
+                        // Atualiza notificação menos frequentemente
+                        if (j % 10 == 0) {
+                            updateNotification();
+                        }
                     }
-                } catch (IOException e) {
+                } catch (Exception e) {
+                    Log.e("ScanService", "Erro na thread " + threadIndex + ": " + e.getMessage());
                     e.printStackTrace();
                 }
             });
@@ -125,23 +151,92 @@ public class ScanService extends Service {
         // Shutdown executor service when all tasks are submitted
         executorService.shutdown();
         new Thread(() -> {
-            while (!executorService.isTerminated()) {
-                // Wait for all tasks to complete
+            while (!executorService.isTerminated() && isRunning) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
             stopScan();
         }).start();
     }
+    
+    /**
+     * Carrega combos do arquivo URI com otimizações de memória
+     */
+    private void loadCombosFromUri(Uri comboFileUri) {
+        combos.clear();
+        
+        try (InputStream inputStream = getContentResolver().openInputStream(comboFileUri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream), 8192)) {
+            
+            String line;
+            int count = 0;
+            final int MAX_COMBOS = 50000; // Mesmo limite do MainActivity
+            
+            while ((line = reader.readLine()) != null && count < MAX_COMBOS) {
+                line = line.trim();
+                if (!line.isEmpty() && line.contains(":")) {
+                    combos.add(line);
+                    count++;
+                }
+                
+                // Força pausa periódica para liberar CPU
+                if (count % 1000 == 0) {
+                    try {
+                        Thread.sleep(5);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            
+            Log.d("ScanService", "Combos carregados: " + combos.size());
+            
+        } catch (IOException e) {
+            Log.e("ScanService", "Erro ao carregar combos: " + e.getMessage());
+            e.printStackTrace();
+        } catch (OutOfMemoryError e) {
+            Log.e("ScanService", "Memória insuficiente. Combos carregados: " + combos.size());
+            System.gc(); // Força garbage collection
+        }
+    }
 
     private void stopScan() {
         isRunning = false;
+        
         if (executorService != null && !executorService.isShutdown()) {
             executorService.shutdownNow();
+            try {
+                // Aguarda até 2 segundos para as threads terminarem
+                if (!executorService.awaitTermination(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                    Log.w("ScanService", "Executor não terminou dentro do tempo limite");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.w("ScanService", "Interrompido ao aguardar executor terminar");
+            }
         }
+        
+        // Libera memória dos combos
+        if (combos != null) {
+            combos.clear();
+        }
+        
+        // Força garbage collection
+        System.gc();
+        
         if (listener != null) {
             listener.onScanFinished(hitsCount.get(), failsCount.get());
         }
+        
         stopForeground(true);
         stopSelf();
+        
+        Log.d("ScanService", "Scan finalizado. Hits: " + hitsCount.get() + ", Fails: " + failsCount.get());
     }
 
     private void checkCombo(String panel, String user, String pass) {
@@ -280,7 +375,6 @@ public class ScanService extends Service {
 
     private void updateNotification() {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        int totalCombos = combos.size();
         int currentProgress = currentIndex.get();
         String statusText = getString(R.string.notification_text, hitsCount.get(), failsCount.get());
         
